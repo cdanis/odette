@@ -70,17 +70,17 @@ const transporter = nodemailer.createTransport({
 });
 
 // ---------- HELPERS ----------
-function generateToken(): string {
+export function generateToken(): string {
   return crypto.randomBytes(16).toString('hex');
 }
 
-async function sendInvitation(name: string, email: string, token: string) {
+export async function sendInvitation(name: string, email: string, token: string) {
   const link = `${APP_BASE_URL}/rsvp/${token}`;
   const html = `<p>Hi ${name},</p>\n<p>Please RSVP here: <a href=\"${link}\">${link}</a></p>`;
   await transporter.sendMail({ from: SMTP_USER, to: email, subject: 'You\'re Invited! Please RSVP', html });
 }
 
-async function notifyAdmin(att: any, rsvp: string, partySize: number) {
+export async function notifyAdmin(att: any, rsvp: string, partySize: number) {
   if (!NTFY_TOPIC) return;
   const title = `RSVP: ${att.name}`;
   const msg = `Event: ${att.event_title}\nResponse: ${rsvp}\nParty Size: ${partySize}`;
@@ -97,12 +97,11 @@ async function notifyAdmin(att: any, rsvp: string, partySize: number) {
  * - If email exists: update party_size (and leave existing token/is_sent)
  * - Else: insert new with generated token
  */
-function upsertAttendee(event_id: number, name: string, email: string, party_size: number) {
+export function upsertAttendee(event_id: number, name: string, email: string, party_size: number) {
   const existing = db.prepare(
     'SELECT id, party_size FROM attendees WHERE event_id = ? AND email = ?'
   ).get(event_id, email);
   if (existing) {
-    // update party size if changed
     if (existing.party_size !== party_size) {
       db.prepare('UPDATE attendees SET party_size = ? WHERE id = ?')
         .run(party_size, existing.id);
@@ -120,7 +119,7 @@ function upsertAttendee(event_id: number, name: string, email: string, party_siz
 type AttendeeView = { id:number; event_id:number; name:string; email:string; party_size:number; is_sent:number; rsvp:string|null; responded_at:number|null; event_title:string; };
 app.get('/admin', (req, res) => {
   const events = db.prepare('SELECT * FROM events ORDER BY date').all();
-  const attendees:AttendeeView[] = db.prepare(
+  const attendees: AttendeeView[] = db.prepare(
     `SELECT a.*, e.title AS event_title FROM attendees a JOIN events e ON a.event_id=e.id ORDER BY e.date, a.name`
   ).all();
   res.render('admin', { events, attendees });
@@ -165,51 +164,44 @@ app.post('/admin/attendees/copy', (req, res) => {
 
 // Send single
 app.post('/admin/attendees/send/:id', async (req, res) => {
-  const id=Number(req.params.id);
-  const a=db.prepare('SELECT name,email,token FROM attendees WHERE id=?').get(id);
-  if(a){ await sendInvitation(a.name,a.email,a.token); db.prepare('UPDATE attendees SET is_sent=1 WHERE id=?').run(id); }
+  const id = Number(req.params.id);
+  const a = db.prepare('SELECT name,email,token FROM attendees WHERE id=?').get(id);
+  if (a) { await sendInvitation(a.name, a.email, a.token); db.prepare('UPDATE attendees SET is_sent=1 WHERE id=?').run(id); }
   res.redirect('/admin');
 });
 
 // Send all pending for event
 app.post('/admin/events/:id/send-invites', async (req, res) => {
-  const eid=Number(req.params.id);
-  const pending=db.prepare(
+  const eid = Number(req.params.id);
+  const pending = db.prepare(
     'SELECT id,name,email,token FROM attendees WHERE event_id=? AND is_sent=0'
   ).all(eid);
-  for(const a of pending){ await sendInvitation(a.name,a.email,a.token); db.prepare('UPDATE attendees SET is_sent=1 WHERE id=?').run(a.id); }
+  for (const a of pending) { await sendInvitation(a.name, a.email, a.token); db.prepare('UPDATE attendees SET is_sent=1 WHERE id=?').run(a.id); }
   res.redirect('/admin');
 });
 
-// RSVP page
-app.get('/rsvp/:token',(req,res)=>{
-  const attendee=db.prepare(
-    `SELECT a.*,e.title AS event_title,e.date,e.description `+
-    `FROM attendees a JOIN events e ON a.event_id=e.id WHERE a.token=?`
+app.get('/rsvp/:token', (req, res) => {
+  const attendee = db.prepare(
+    `SELECT a.*,e.title AS event_title,e.date,e.description FROM attendees a JOIN events e ON a.event_id=e.id WHERE a.token=?`
   ).get(req.params.token);
-  if(!attendee) return res.status(404).send('Invalid link');
-  res.render('rsvp',{attendee});
+  if (!attendee) return res.status(404).send('Invalid link');
+  res.render('rsvp', { attendee });
 });
 
-// Submit RSVP
-app.post('/rsvp/:token', async (req,res)=>{
-  const { rsvp,party_size }=req.body;
-  const now=Date.now();
-  const a=db.prepare(
-    `SELECT a.name,e.title AS event_title FROM attendees a `+
-    `JOIN events e ON a.event_id=e.id WHERE a.token=?`
+app.post('/rsvp/:token', async (req, res) => {
+  const { rsvp, party_size } = req.body;
+  const now = Date.now();
+  const a = db.prepare(
+    `SELECT a.name,e.title AS event_title FROM attendees a JOIN events e ON a.event_id=e.id WHERE a.token=?`
   ).get(req.params.token);
   db.prepare(
     'UPDATE attendees SET rsvp=?,party_size=?,responded_at=? WHERE token=?'
-  ).run(rsvp,party_size,now,req.params.token);
-  await notifyAdmin(a,rsvp,Number(party_size));
-  res.render('thanks',{rsvp,party_size});
+  ).run(rsvp, party_size, now, req.params.token);
+  await notifyAdmin(a, rsvp, Number(party_size));
+  res.render('thanks', { rsvp, party_size });
 });
 
-// Start server
-app.listen(PORT,()=>console.log(`RSVP server at ${APP_BASE_URL}`));
+app.listen(PORT, () => console.log(`RSVP server at ${APP_BASE_URL}`));
 
-/**
- * Views/admin.ejs forms should use upsert for single, batch, and copy.
- * RSVP and thanks unchanged.
- */
+// Export for testing
+export { db };
