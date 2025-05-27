@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <title>Thank You!</title>
+</head>
+<body>
+  <div class="container">
+    <h1>Thanks for Your Response</h1>
+    <% if (rsvp === 'yes') { %>
+      <p>Awesome! We’re looking forward to seeing you and your party of <%= party_size %>.</p>
+    <% } else { %>
+      <p>Sorry you can’t make it. We appreciate you letting us know.</p>
+    <% } %>
+    <p class="footer">If you need to change your response, just revisit your unique link.</p>
+  </div>
+</body>
+</html>

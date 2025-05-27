@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <title>RSVP - <%= attendee.event_title %></title>
+</head>
+<body>
+  <div class="container">
+    <h1><%= attendee.event_title %></h1>
+    <p class="date"><%= new Date(attendee.date).toLocaleDateString() %></p>
+    <% if (attendee.description) { %>
+      <p class="description"><%= attendee.description %></p>
+    <% } %>
+
+    <form action="/rsvp/<%= attendee.token %>" method="POST" class="rsvp-form">
+      <label>
+        <span>Your Name:</span>
+        <input type="text" name="name" value="<%= attendee.name %>" disabled />
+      </label>
+      <fieldset>
+        <legend>Will you attend?</legend>
+        <label><input type="radio" name="rsvp" value="yes" required /> Yes</label>
+        <label><input type="radio" name="rsvp" value="no" /> No</label>
+      </fieldset>
+      <label>
+        <span>Party Size:</span>
+        <input type="number" name="party_size" min="1" value="<%= attendee.party_size %>" required />
+      </label>
+      <button type="submit">Submit RSVP</button>
+    </form>
+  </div>
+</body>
+</html>
