@@ -182,7 +182,7 @@
               <tr>
                 <td><%= attendee.name %></td>
                 <td><%= attendee.email %></td>
-                <td>
+                <td data-order="<%= attendee.party_size %>">
                   <% if (!attendee.rsvp) { %>
                     <form action="/admin/attendee/<%= attendee.id %>/update-party-size" method="POST" class="party-size-form" style="display: inline-flex; align-items: center;">
                       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -200,7 +200,18 @@
                     No
                   <% } %>
                 </td>
-                <td><%= attendee.rsvp ? attendee.rsvp.toUpperCase() : 'Pending' %></td>
+                <% 
+                  let rsvpStatusText = 'Pending';
+                  let rsvpSortOrder = 1; // Default for Pending
+                  if (attendee.rsvp === 'yes') {
+                    rsvpStatusText = 'YES';
+                    rsvpSortOrder = 2;
+                  } else if (attendee.rsvp === 'no') {
+                    rsvpStatusText = 'NO';
+                    rsvpSortOrder = 3;
+                  }
+                %>
+                <td data-order="<%= rsvpSortOrder %>"><%= rsvpStatusText %></td>
                 <td>
                   <% if (attendee.responded_at) { %>
                     <%= new Date(attendee.responded_at).toLocaleString() %>
@@ -236,8 +247,9 @@
   <script>
     $(document).ready(function() {
       $('#attendeesTable').DataTable({
+        // Example: Disable sorting on the 'Actions' column (index 6)
         // "columnDefs": [
-        //   { "orderable": false, "targets": 6 } // Example: Disable sorting on 'Actions' column
+        //   { "orderable": false, "targets": 6 } 
         // ]
       });
     });
