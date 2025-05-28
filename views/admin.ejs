@@ -17,8 +17,8 @@
         <h3>Create New Event</h3>
         <label for="title">Title:</label>
         <input type="text" id="title" name="title" required />
-        <label for="date">Date:</label>
-        <input type="date" id="date" name="date" required />
+        <label for="date">Date & Time:</label>
+        <input type="datetime-local" id="date" name="date" required />
         <label for="description">Description (optional):</label>
         <textarea id="description" name="description"></textarea>
         <button type="submit">Create Event</button>
@@ -30,7 +30,7 @@
           <thead>
             <tr>
               <th>Title</th>
-              <th>Date</th>
+              <th>Date & Time</th>
               <th>Description</th>
               <th>Potential Guests</th>
               <th>Not Sent</th>
@@ -44,7 +44,7 @@
             <% events.forEach(event => { %>
               <tr>
                 <td><%= event.title %></td>
-                <td><%= new Date(event.date).toLocaleDateString() %></td>
+                <td><%= new Date(event.date).toLocaleString() %></td>
                 <td><%= event.description || 'N/A' %></td>
                 <td><%= event.stats.potentialGuests %></td>
                 <td><%= event.stats.guestsNotSent %></td>
