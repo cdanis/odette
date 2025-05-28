@@ -99,12 +99,56 @@ export function upsertAttendee(event_id: number, name: string, email: string, pa
 
 type EventRecord = { id: number; title: string; date: number; description: string | null; };
 type AttendeeView = { id:number; event_id:number; name:string; email:string; party_size:number; is_sent:number; rsvp:string|null; responded_at:number|null; event_title:string; event_date:number; event_desc:string; token: string; };
-// Simplified Attendee for event-admin page, event_title is known from context
 type EventAttendeeView = { id:number; event_id:number; name:string; email:string; party_size:number; token: string; is_sent:number; rsvp:string|null; responded_at:number|null; };
 
+interface AttendeeStats {
+  potentialGuests: number;
+  guestsNotSent: number;
+  guestsInvited: number;
+  guestsAwaitingReply: number;
+  guestsAttending: number;
+  guestsNotAttending: number;
+}
+
+function getEventAttendeeStats(eventId: number): AttendeeStats {
+  const stats: AttendeeStats = {
+    potentialGuests: 0,
+    guestsNotSent: 0,
+    guestsInvited: 0,
+    guestsAwaitingReply: 0,
+    guestsAttending: 0,
+    guestsNotAttending: 0,
+  };
+
+  const potentialGuestsRow = db.prepare('SELECT SUM(party_size) as sum_party FROM attendees WHERE event_id = ?').get(eventId) as { sum_party: number | null };
+  stats.potentialGuests = potentialGuestsRow?.sum_party ?? 0;
+
+  const notSentRow = db.prepare('SELECT SUM(party_size) as sum_party FROM attendees WHERE event_id = ? AND is_sent = 0').get(eventId) as { sum_party: number | null };
+  stats.guestsNotSent = notSentRow?.sum_party ?? 0;
+
+  const invitedRow = db.prepare('SELECT SUM(party_size) as sum_party FROM attendees WHERE event_id = ? AND is_sent = 1').get(eventId) as { sum_party: number | null };
+  stats.guestsInvited = invitedRow?.sum_party ?? 0;
+  
+  const awaitingReplyRow = db.prepare('SELECT SUM(party_size) as sum_party FROM attendees WHERE event_id = ? AND is_sent = 1 AND rsvp IS NULL').get(eventId) as { sum_party: number | null };
+  stats.guestsAwaitingReply = awaitingReplyRow?.sum_party ?? 0;
+
+  const attendingRow = db.prepare("SELECT SUM(party_size) as sum_party FROM attendees WHERE event_id = ? AND is_sent = 1 AND rsvp = 'yes'").get(eventId) as { sum_party: number | null };
+  stats.guestsAttending = attendingRow?.sum_party ?? 0;
+
+  const notAttendingRow = db.prepare("SELECT SUM(party_size) as sum_party FROM attendees WHERE event_id = ? AND is_sent = 1 AND rsvp = 'no'").get(eventId) as { sum_party: number | null };
+  stats.guestsNotAttending = notAttendingRow?.sum_party ?? 0;
+
+  return stats;
+}
+
+type EventRecordWithStats = EventRecord & { stats: AttendeeStats };
 
 app.get('/admin', (req, res) => {
-  const events = db.prepare('SELECT * FROM events ORDER BY date').all() as EventRecord[];
+  const eventsRaw = db.prepare('SELECT * FROM events ORDER BY date').all() as EventRecord[];
+  const events: EventRecordWithStats[] = eventsRaw.map(event => ({
+    ...event,
+    stats: getEventAttendeeStats(event.id)
+  }));
   res.render('admin', { events });
 });
 
@@ -118,9 +162,10 @@ app.get('/admin/:eventId', (req, res) => {
   const attendees = db.prepare(
     'SELECT id, event_id, name, email, party_size, token, is_sent, rsvp, responded_at FROM attendees WHERE event_id = ? ORDER BY name'
   ).all(eventId) as EventAttendeeView[];
-  const allEvents = db.prepare('SELECT id, title FROM events WHERE id != ? ORDER BY title').all(eventId) as {id: number, title: string}[]; // For "copy from" dropdown
+  const allEvents = db.prepare('SELECT id, title FROM events WHERE id != ? ORDER BY title').all(eventId) as {id: number, title: string}[];
+  const attendeeStats = getEventAttendeeStats(eventId);
 
-  res.render('event-admin', { event, attendees, allEvents });
+  res.render('event-admin', { event, attendees, allEvents, attendeeStats });
 });
 
 app.post('/admin/event', (req, res) => {
@@ -132,20 +177,19 @@ app.post('/admin/event', (req, res) => {
 app.post('/admin/event/:eventId/update', (req, res) => {
   const eventId = +req.params.eventId;
   const { title, date, description } = req.body;
-  // Ensure date is stored as a timestamp
   const dateTimestamp = new Date(date).getTime();
   db.prepare('UPDATE events SET title = ?, date = ?, description = ? WHERE id = ?')
     .run(title, dateTimestamp, description, eventId);
   res.redirect(`/admin/${eventId}`);
 });
 
-app.post('/admin/attendee', (req, res) => { // Assumes event_id is in body
+app.post('/admin/attendee', (req, res) => {
   const eventId = +req.body.event_id;
   upsertAttendee(eventId, req.body.name, req.body.email, +req.body.party_size||1);
   res.redirect(`/admin/${eventId}`);
 });
 
-app.post('/admin/attendees/batch', (req, res) => { // Assumes event_id is in body
+app.post('/admin/attendees/batch', (req, res) => {
   const eventId = +req.body.event_id;
   req.body.csv.split(/\r?\n/).forEach((line: string) => {
     const [name, email, party] = line.split(',').map((s: string) => s.trim());
@@ -156,7 +200,7 @@ app.post('/admin/attendees/batch', (req, res) => { // Assumes event_id is in bod
 
 app.post('/admin/attendees/copy', (req, res) => {
   const fromEventId = +req.body.from_event;
-  const toEventId = +req.body.to_event; // This will be the current event's ID from hidden field in event-admin.ejs
+  const toEventId = +req.body.to_event;
   const rows = db.prepare('SELECT name,email,party_size FROM attendees WHERE event_id=?').all(fromEventId);
   rows.forEach((r: any) => upsertAttendee(toEventId, r.name, r.email, r.party_size));
   res.redirect(`/admin/${toEventId}`);
@@ -167,14 +211,13 @@ interface Invitee { id: number; name: string; email: string; token: string; }
 
 app.post('/admin/attendees/send/:attendeeId', async (req, res) => {
   const attendeeId = +req.params.attendeeId;
-  // Fetch event_id along with attendee details for redirection
   const a = db.prepare('SELECT id, name, email, token, event_id FROM attendees WHERE id=?').get(attendeeId) as InviteeWithEventId | undefined;
   if (a) {
     await sendInvitation(a.name, a.email, a.token);
     db.prepare('UPDATE attendees SET is_sent=1 WHERE id=?').run(attendeeId);
     res.redirect(`/admin/${a.event_id}`);
   } else {
-    res.status(404).send('Attendee not found'); // Or redirect to /admin if preferred
+    res.status(404).send('Attendee not found');
   }
 });
 
@@ -215,12 +258,11 @@ app.post('/rsvp/:token', async (req, res) => {
     }
         const { rsvp, party_size } = req.body;
         const now = Date.now();
-        // Corrected: req.params.token is a string, not to be converted to number with +
         const a = db.prepare(
             'SELECT a.name, a.token, e.title AS event_title FROM attendees a JOIN events e ON a.event_id=e.id WHERE a.token=?'
-        ).get(req.params.token) as { name: string; token: string; event_title: string }; // Added token here for AttendeeView consistency
+        ).get(req.params.token) as { name: string; token: string; event_title: string };
 
-        if (!a) { // Attendee not found for the given token
+        if (!a) {
             res.status(404).send('Invalid token or attendee not found.');
             return;
         }

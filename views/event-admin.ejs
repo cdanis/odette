@@ -7,6 +7,25 @@
   <title>Admin - <%= event.title %></title>
   <!-- DataTables CSS -->
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+  <style>
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .summary-item {
+      background-color: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .summary-item strong {
+      display: block;
+      margin-bottom: 5px;
+      color: #333;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -37,6 +56,22 @@
     <p class="date">Current Event Date: <%= new Date(event.date).toLocaleDateString() %></p>
     <% if (event.description) { %>
       <p class="description">Current Description: <%= event.description %></p>
+    <% } %>
+
+    <!-- RSVP Summary Section -->
+    <% if (typeof attendeeStats !== 'undefined') { %>
+    <div class="form-section">
+      <h2>RSVP Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-item"><strong>Potential Guests:</strong> <%= attendeeStats.potentialGuests %></div>
+        <div class="summary-item"><strong>Invites Not Sent:</strong> <%= attendeeStats.guestsNotSent %></div>
+        <div class="summary-item"><strong>Invites Sent:</strong> <%= attendeeStats.guestsInvited %></div>
+        <div class="summary-item"><strong>Awaiting Reply:</strong> <%= attendeeStats.guestsAwaitingReply %></div>
+        <div class="summary-item"><strong>Attending:</strong> <%= attendeeStats.guestsAttending %></div>
+        <div class="summary-item"><strong>Not Attending:</strong> <%= attendeeStats.guestsNotAttending %></div>
+      </div>
+    </div>
+    <hr style="margin: 20px 0;">
     <% } %>
 
     <div class="form-section">
@@ -93,7 +128,7 @@
       <% } %>
 
 
-      <h3>Current Attendees (<%= attendees.length %>)</h3>
+      <h3>Current Attendees (<%= attendees.length %> individuals)</h3>
       <% if (attendees.length > 0) { %>
         <table id="attendeesTable" class="display">
           <thead>
@@ -155,10 +190,8 @@
   <script>
     $(document).ready(function() {
       $('#attendeesTable').DataTable({
-        // You can add DataTables options here if needed
-        // For example, to disable sorting on the last column (Actions):
         // "columnDefs": [
-        //   { "orderable": false, "targets": 6 }
+        //   { "orderable": false, "targets": 6 } // Example: Disable sorting on 'Actions' column
         // ]
       });
     });
