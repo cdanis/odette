@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <title>Admin Panel</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+    .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h1, h2 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; }
+    input[type="text"], input[type="date"], input[type="email"], input[type="number"], textarea, select {
+      width: calc(100% - 22px); padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;
+    }
+    button, input[type="submit"] {
+      background-color: #5cb85c; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;
+    }
+    button:hover, input[type="submit"]:hover { background-color: #4cae4c; }
+    .form-section { margin-bottom: 30px; padding: 20px; border: 1px solid #eee; border-radius: 5px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f9f9f9; }
+    .action-button { background-color: #007bff; margin-right: 5px; }
+    .action-button:hover { background-color: #0056b3; }
+    .delete-button { background-color: #d9534f; }
+    .delete-button:hover { background-color: #c9302c; }
+    .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 768px) { .grid-container { grid-template-columns: 1fr; } }
+    .event-card, .attendee-card { padding: 15px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px; }
+    .event-card h3, .attendee-card h3 { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Admin Panel</h1>
+
+    <!-- Events Section -->
+    <div class="form-section">
+      <h2>Manage Events</h2>
+      <form action="/admin/event" method="POST">
+        <h3>Create New Event</h3>
+        <label for="title">Title:</label>
+        <input type="text" id="title" name="title" required />
+        <label for="date">Date:</label>
+        <input type="date" id="date" name="date" required />
+        <label for="description">Description (optional):</label>
+        <textarea id="description" name="description"></textarea>
+        <button type="submit">Create Event</button>
+      </form>
+
+      <h3>Existing Events</h3>
+      <% if (events.length > 0) { %>
+        <table>
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% events.forEach(event => { %>
+              <tr>
+                <td><%= event.title %></td>
+                <td><%= new Date(event.date).toLocaleDateString() %></td>
+                <td><%= event.description || 'N/A' %></td>
+                <td>
+                  <form action="/admin/events/<%= event.id %>/send-invites" method="POST" style="display: inline;">
+                    <button type="submit" class="action-button">Send All Invites</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } else { %>
+        <p>No events created yet.</p>
+      <% } %>
+    </div>
+
+    <!-- Attendees Section -->
+    <div class="form-section">
+      <h2>Manage Attendees</h2>
+
+      <% if (events.length === 0) { %>
+        <p>Please create an event first to manage attendees.</p>
+      <% } else { %>
+        <div class="grid-container">
+          <div>
+            <h3>Add Attendee</h3>
+            <form action="/admin/attendee" method="POST">
+              <label for="event_id_single">Event:</label>
+              <select id="event_id_single" name="event_id" required>
+                <% events.forEach(event => { %>
+                  <option value="<%= event.id %>"><%= event.title %></option>
+                <% }) %>
+              </select>
+              <label for="name">Name:</label>
+              <input type="text" id="name" name="name" required />
+              <label for="email">Email:</label>
+              <input type="email" id="email" name="email" required />
+              <label for="party_size_single">Party Size:</label>
+              <input type="number" id="party_size_single" name="party_size" value="1" min="1" required />
+              <button type="submit">Add Attendee</button>
+            </form>
+          </div>
+
+          <div>
+            <h3>Batch Add Attendees (CSV)</h3>
+            <form action="/admin/attendees/batch" method="POST">
+              <label for="event_id_batch">Event:</label>
+              <select id="event_id_batch" name="event_id" required>
+                <% events.forEach(event => { %>
+                  <option value="<%= event.id %>"><%= event.title %></option>
+                <% }) %>
+              </select>
+              <label for="csv">CSV Data (Name,Email,PartySize per line):</label>
+              <textarea id="csv" name="csv" rows="5" placeholder="John Doe,john@example.com,2&#10;Jane Smith,jane@example.com,1" required></textarea>
+              <button type="submit">Batch Add</button>
+            </form>
+          </div>
+        </div>
+
+        <div>
+          <h3>Copy Attendees Between Events</h3>
+          <form action="/admin/attendees/copy" method="POST">
+            <label for="from_event">Copy From Event:</label>
+            <select id="from_event" name="from_event" required>
+              <% events.forEach(event => { %>
+                <option value="<%= event.id %>"><%= event.title %></option>
+              <% }) %>
+            </select>
+            <label for="to_event">To Event:</label>
+            <select id="to_event" name="to_event" required>
+              <% events.forEach(event => { %>
+                <option value="<%= event.id %>"><%= event.title %></option>
+              <% }) %>
+            </select>
+            <button type="submit">Copy Attendees</button>
+          </form>
+        </div>
+      <% } %>
+
+      <h3>Current Attendees</h3>
+      <% if (attendees.length > 0) { %>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Party Size</th>
+              <th>Event</th>
+              <th>Invite Sent?</th>
+              <th>RSVP Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% attendees.forEach(attendee => { %>
+              <tr>
+                <td><%= attendee.name %></td>
+                <td><%= attendee.email %></td>
+                <td><%= attendee.party_size %></td>
+                <td><%= attendee.event_title %></td>
+                <td><%= attendee.is_sent ? 'Yes' : 'No' %></td>
+                <td><%= attendee.rsvp ? attendee.rsvp.toUpperCase() : 'Pending' %></td>
+                <td>
+                  <% if (!attendee.is_sent) { %>
+                    <form action="/admin/attendees/send/<%= attendee.id %>" method="POST" style="display: inline;">
+                      <button type="submit" class="action-button">Send Invite</button>
+                    </form>
+                  <% } else { %>
+                    <span>Sent</span>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } else { %>
+        <p>No attendees added yet.</p>
+      <% } %>
+    </div>
+  </div>
+</body>
+</html>
