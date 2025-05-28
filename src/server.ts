@@ -237,6 +237,8 @@ app.post('/admin/attendee', (req, res) => {
   res.redirect(`/admin/${eventId}`);
 });
 
+// FIXME: this isn't a real CSV parser; names are likely to contain commas!
+// todo: rethink this feature
 app.post('/admin/attendees/batch', (req, res) => {
   const eventId = +req.body.event_id;
   req.body.csv.split(/\r?\n/).forEach((line: string) => {

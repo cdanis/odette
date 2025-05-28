@@ -133,7 +133,7 @@
           </form>
         </div>
 
-        <div>
+        <div style="visibility: hidden;"> <!-- todo: rethink this feature -->
           <h3>Batch Add Attendees (CSV)</h3>
           <form action="/admin/attendees/batch" method="POST">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
