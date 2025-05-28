@@ -2,9 +2,9 @@
 import express from 'express';
 import path from 'path';
 import bodyParser from 'body-parser';
-import nodemailer from 'nodemailer';
+import * as nodemailer from 'nodemailer';
 import Database from 'better-sqlite3';
-import crypto from 'crypto';
+import * as crypto from 'crypto';
 
 // Config loader (e.g. dotenv)
 // import dotenv from 'dotenv'; dotenv.config();
