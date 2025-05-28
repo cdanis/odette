@@ -129,6 +129,14 @@ th {
   gap: 20px;
 }
 
+.card {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 15px;
+  box-shadow: 0 0 5px rgba(0,0,0,0.1);
+}
+
 @media (max-width: 768px) {
   .grid-container {
     grid-template-columns: 1fr;

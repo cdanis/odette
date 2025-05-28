@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/styles.css" /> 
     <title>RSVP - <%= attendee.event_title %>
     </title>
 </head>
@@ -12,11 +12,13 @@
 <body>
     <div class="container">
         <div class="card">
-            <h1>
-                <%= attendee.event_title %>
-            </h1>
+            <div class="card-header">
+                <h1 class="card-header-title">
+                    <%= attendee.event_title %>
+                </h1>
+            </div>
             <p class="date">
-                Event Date & Time: <span class="local-datetime" data-timestamp="<%= attendee.event_date %>">
+                <span class="local-datetime" data-timestamp="<%= attendee.event_date %>">
                     <%= new Date(attendee.event_date).toLocaleString() %>
                 </span>
             </p>
@@ -42,7 +44,7 @@
                 <input type="number" id="party_size_rsvp" name="party_size" min="1" value="<%= attendee.party_size %>"
                     required />
             </label>
-            <button type="submit">Submit RSVP</button>
+            <button class="button is-primary" type="submit">Respond</button>
         </form>
     </div>
 
