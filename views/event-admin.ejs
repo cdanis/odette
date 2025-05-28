@@ -9,10 +9,32 @@
 <body>
   <div class="container">
     <p><a href="/admin">&laquo; Back to All Events</a></p>
-    <h1>Manage Attendees for: <%= event.title %></h1>
-    <p class="date">Event Date: <%= new Date(event.date).toLocaleDateString() %></p>
+    <h1>Manage Event: <%= event.title %></h1>
+
+    <!-- Edit Event Details Section -->
+    <div class="form-section">
+      <h2>Edit Event Details</h2>
+      <form action="/admin/event/<%= event.id %>/update" method="POST">
+        <div>
+          <label for="title">Event Title:</label>
+          <input type="text" id="title" name="title" value="<%= event.title %>" required />
+        </div>
+        <div>
+          <label for="date">Event Date:</label>
+          <input type="date" id="date" name="date" value="<%= new Date(event.date).toISOString().split('T')[0] %>" required />
+        </div>
+        <div>
+          <label for="description">Description:</label>
+          <textarea id="description" name="description" rows="3"><%= event.description || '' %></textarea>
+        </div>
+        <button type="submit" class="action-button">Update Event Details</button>
+      </form>
+    </div>
+    <hr style="margin: 20px 0;">
+
+    <p class="date">Current Event Date: <%= new Date(event.date).toLocaleDateString() %></p>
     <% if (event.description) { %>
-      <p class="description">Description: <%= event.description %></p>
+      <p class="description">Current Description: <%= event.description %></p>
     <% } %>
 
     <div class="form-section">
@@ -88,7 +110,13 @@
                 <td><%= attendee.name %></td>
                 <td><%= attendee.email %></td>
                 <td><%= attendee.party_size %></td>
-                <td><%= attendee.is_sent ? 'Yes' : 'No' %></td>
+                <td>
+                  <% if (attendee.is_sent) { %>
+                    <a href="/rsvp/<%= attendee.token %>" target="_blank">Yes</a>
+                  <% } else { %>
+                    No
+                  <% } %>
+                </td>
                 <td><%= attendee.rsvp ? attendee.rsvp.toUpperCase() : 'Pending' %></td>
                 <td>
                   <% if (!attendee.is_sent) { %>

@@ -98,9 +98,9 @@ export function upsertAttendee(event_id: number, name: string, email: string, pa
 }
 
 type EventRecord = { id: number; title: string; date: number; description: string | null; };
-type AttendeeView = { id:number; event_id:number; name:string; email:string; party_size:number; is_sent:number; rsvp:string|null; responded_at:number|null; event_title:string; event_date:number; event_desc:string; };
+type AttendeeView = { id:number; event_id:number; name:string; email:string; party_size:number; is_sent:number; rsvp:string|null; responded_at:number|null; event_title:string; event_date:number; event_desc:string; token: string; };
 // Simplified Attendee for event-admin page, event_title is known from context
-type EventAttendeeView = { id:number; event_id:number; name:string; email:string; party_size:number; is_sent:number; rsvp:string|null; responded_at:number|null; };
+type EventAttendeeView = { id:number; event_id:number; name:string; email:string; party_size:number; token: string; is_sent:number; rsvp:string|null; responded_at:number|null; };
 
 
 app.get('/admin', (req, res) => {
@@ -116,7 +116,7 @@ app.get('/admin/:eventId', (req, res) => {
     return;
   }
   const attendees = db.prepare(
-    'SELECT id, event_id, name, email, party_size, is_sent, rsvp, responded_at FROM attendees WHERE event_id = ? ORDER BY name'
+    'SELECT id, event_id, name, email, party_size, token, is_sent, rsvp, responded_at FROM attendees WHERE event_id = ? ORDER BY name'
   ).all(eventId) as EventAttendeeView[];
   const allEvents = db.prepare('SELECT id, title FROM events WHERE id != ? ORDER BY title').all(eventId) as {id: number, title: string}[]; // For "copy from" dropdown
 
@@ -127,6 +127,16 @@ app.post('/admin/event', (req, res) => {
   db.prepare('INSERT INTO events (title,date,description) VALUES (?,?,?)')
     .run(req.body.title, new Date(req.body.date).getTime(), req.body.description);
   res.redirect('/admin');
+});
+
+app.post('/admin/event/:eventId/update', (req, res) => {
+  const eventId = +req.params.eventId;
+  const { title, date, description } = req.body;
+  // Ensure date is stored as a timestamp
+  const dateTimestamp = new Date(date).getTime();
+  db.prepare('UPDATE events SET title = ?, date = ?, description = ? WHERE id = ?')
+    .run(title, dateTimestamp, description, eventId);
+  res.redirect(`/admin/${eventId}`);
 });
 
 app.post('/admin/attendee', (req, res) => { // Assumes event_id is in body
@@ -207,8 +217,8 @@ app.post('/rsvp/:token', async (req, res) => {
         const now = Date.now();
         // Corrected: req.params.token is a string, not to be converted to number with +
         const a = db.prepare(
-            'SELECT a.name,e.title AS event_title FROM attendees a JOIN events e ON a.event_id=e.id WHERE a.token=?'
-        ).get(req.params.token) as { name: string; event_title: string };
+            'SELECT a.name, a.token, e.title AS event_title FROM attendees a JOIN events e ON a.event_id=e.id WHERE a.token=?'
+        ).get(req.params.token) as { name: string; token: string; event_title: string }; // Added token here for AttendeeView consistency
 
         if (!a) { // Attendee not found for the given token
             res.status(404).send('Invalid token or attendee not found.');
