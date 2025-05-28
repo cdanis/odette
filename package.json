@@ -2,11 +2,11 @@
   "name": "rsvpquest",
   "version": "0.1.0",
   "description": "send and track RSVPs",
-  "main": "dist/server.js",
+  "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/server.js",
-    "dev": "ts-node src/server.ts",
+    "start": "node dist/main.js",
+    "dev": "ts-node src/main.ts",
     "test": "jest"
   },
   "author": "Chris Danis <cdanis@gmail.com>",

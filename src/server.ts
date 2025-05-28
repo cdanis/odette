@@ -19,13 +19,13 @@ const NTFY_BASE_URL = (process.env.NTFY_BASE_URL ?? 'https://ntfy.sh').replace(/
 const NTFY_USER = process.env.NTFY_USER;
 const NTFY_PASS = process.env.NTFY_PASS;
 
-export const app = express();
+export const app = express.default();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/static', express.static(path.join(__dirname, 'public')));
 
-export const db = new Database(DB_PATH);
+export const db = new Database.default(DB_PATH);
 db.prepare(`CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY,
   title TEXT NOT NULL,
