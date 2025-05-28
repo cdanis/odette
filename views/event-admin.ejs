@@ -101,6 +101,7 @@
               <th>Party Size</th>
               <th>Invite Sent?</th>
               <th>RSVP Status</th>
+              <th>Responded At</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -118,6 +119,13 @@
                   <% } %>
                 </td>
                 <td><%= attendee.rsvp ? attendee.rsvp.toUpperCase() : 'Pending' %></td>
+                <td>
+                  <% if (attendee.responded_at) { %>
+                    <%= new Date(attendee.responded_at).toLocaleString() %>
+                  <% } else { %>
+                    N/A
+                  <% } %>
+                </td>
                 <td>
                   <% if (!attendee.is_sent) { %>
                     <form action="/admin/attendees/send/<%= attendee.id %>" method="POST" style="display: inline;">
