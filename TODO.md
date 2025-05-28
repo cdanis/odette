@@ -6,6 +6,8 @@
 
 * restyle with bulma.  no! tailwind???
 
+* FEAT: batch parse an email addressee list.
+
 * alternate names?
   * quelle est demande (or similar) (what's the ask lol)
   * odette
