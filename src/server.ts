@@ -9,17 +9,17 @@ import crypto from 'crypto';
 // Config loader (e.g. dotenv)
 // import dotenv from 'dotenv'; dotenv.config();
 
-const PORT = process.env.PORT ?? '3000';
+export const PORT = process.env.PORT ?? '3000';
+export const APP_BASE_URL = process.env.APP_BASE_URL ?? `http://localhost:${PORT}`;
 const DB_PATH = process.env.DB_PATH ?? './rsvp.sqlite';
 const SMTP_USER = process.env.SMTP_USER!;
 const SMTP_PASS = process.env.SMTP_PASS!;
-const APP_BASE_URL = process.env.APP_BASE_URL ?? `http://localhost:${PORT}`;
 const NTFY_TOPIC = process.env.NTFY_TOPIC;
 const NTFY_BASE_URL = (process.env.NTFY_BASE_URL ?? 'https://ntfy.sh').replace(/\/+$/, '');
 const NTFY_USER = process.env.NTFY_USER;
 const NTFY_PASS = process.env.NTFY_PASS;
 
-const app = express();
+export const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(bodyParser.urlencoded({ extended: true }));
