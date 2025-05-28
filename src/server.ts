@@ -1,9 +1,9 @@
 // src/server.ts
-import express from 'express';
-import path from 'path';
-import bodyParser from 'body-parser';
+import * as express from 'express';
+import * as path from 'path';
+import * as bodyParser from 'body-parser';
 import * as nodemailer from 'nodemailer';
-import Database from 'better-sqlite3';
+import * as Database from 'better-sqlite3';
 import * as crypto from 'crypto';
 
 // Config loader (e.g. dotenv)
