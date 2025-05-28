@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="/static/styles.css" />
+  <title>Admin - <%= event.title %></title>
+</head>
+<body>
+  <div class="container">
+    <p><a href="/admin">&laquo; Back to All Events</a></p>
+    <h1>Manage Attendees for: <%= event.title %></h1>
+    <p class="date">Event Date: <%= new Date(event.date).toLocaleDateString() %></p>
+    <% if (event.description) { %>
+      <p class="description">Description: <%= event.description %></p>
+    <% } %>
+
+    <div class="form-section">
+      <form action="/admin/events/<%= event.id %>/send-invites" method="POST" style="margin-bottom: 20px;">
+        <button type="submit" class="action-button">Send All Pending Invites for This Event</button>
+      </form>
+    </div>
+
+
+    <!-- Attendees Section -->
+    <div class="form-section">
+      <h2>Attendees for <%= event.title %></h2>
+
+      <div class="grid-container">
+        <div>
+          <h3>Add Attendee</h3>
+          <form action="/admin/attendee" method="POST">
+            <input type="hidden" name="event_id" value="<%= event.id %>" />
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required />
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required />
+            <label for="party_size_single">Party Size:</label>
+            <input type="number" id="party_size_single" name="party_size" value="1" min="1" required />
+            <button type="submit">Add Attendee</button>
+          </form>
+        </div>
+
+        <div>
+          <h3>Batch Add Attendees (CSV)</h3>
+          <form action="/admin/attendees/batch" method="POST">
+            <input type="hidden" name="event_id" value="<%= event.id %>" />
+            <label for="csv">CSV Data (Name,Email,PartySize per line):</label>
+            <textarea id="csv" name="csv" rows="5" placeholder="John Doe,john@example.com,2&#10;Jane Smith,jane@example.com,1" required></textarea>
+            <button type="submit">Batch Add</button>
+          </form>
+        </div>
+      </div>
+
+      <% if (allEvents.length > 0) { %>
+      <div class="form-section">
+        <h3>Copy Attendees to This Event (<%= event.title %>)</h3>
+        <form action="/admin/attendees/copy" method="POST">
+          <input type="hidden" name="to_event" value="<%= event.id %>" />
+          <label for="from_event">Copy Attendees From Event:</label>
+          <select id="from_event" name="from_event" required>
+            <% allEvents.forEach(otherEvent => { %>
+              <option value="<%= otherEvent.id %>"><%= otherEvent.title %></option>
+            <% }) %>
+          </select>
+          <button type="submit">Copy Attendees</button>
+        </form>
+      </div>
+      <% } %>
+
+
+      <h3>Current Attendees (<%= attendees.length %>)</h3>
+      <% if (attendees.length > 0) { %>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Party Size</th>
+              <th>Invite Sent?</th>
+              <th>RSVP Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% attendees.forEach(attendee => { %>
+              <tr>
+                <td><%= attendee.name %></td>
+                <td><%= attendee.email %></td>
+                <td><%= attendee.party_size %></td>
+                <td><%= attendee.is_sent ? 'Yes' : 'No' %></td>
+                <td><%= attendee.rsvp ? attendee.rsvp.toUpperCase() : 'Pending' %></td>
+                <td>
+                  <% if (!attendee.is_sent) { %>
+                    <form action="/admin/attendees/send/<%= attendee.id %>" method="POST" style="display: inline;">
+                      <button type="submit" class="action-button">Send Invite</button>
+                    </form>
+                  <% } else { %>
+                    <span>Sent</span>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } else { %>
+        <p>No attendees added yet for this event.</p>
+      <% } %>
+    </div>
+  </div>
+</body>
+</html>
