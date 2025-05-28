@@ -12,8 +12,8 @@ import * as crypto from 'crypto';
 export const PORT = process.env.PORT ?? '3000';
 export const APP_BASE_URL = process.env.APP_BASE_URL ?? `http://localhost:${PORT}`;
 const DB_PATH = process.env.DB_PATH ?? './rsvp.sqlite';
-const SMTP_USER = process.env.SMTP_USER!;
-const SMTP_PASS = process.env.SMTP_PASS!;
+const SMTP_USER = process.env.SMTP_USER;
+const SMTP_PASS = process.env.SMTP_PASS;
 const NTFY_TOPIC = process.env.NTFY_TOPIC;
 const NTFY_BASE_URL = (process.env.NTFY_BASE_URL ?? 'https://ntfy.sh').replace(/\/+$/, '');
 const NTFY_USER = process.env.NTFY_USER;
@@ -21,7 +21,7 @@ const NTFY_PASS = process.env.NTFY_PASS;
 
 export const app = express.default();
 app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
+app.set('views', './views/');
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/static', express.static(path.join(__dirname, 'public')));
 
@@ -57,7 +57,10 @@ export function generateToken(): string {
 export async function sendInvitation(name: string, email: string, token: string) {
   const link = `${APP_BASE_URL}/rsvp/${token}`;
   const html = `<p>Hi ${name},</p>\n<p>Please RSVP here: <a href=\"${link}\">${link}</a></p>`;
-  await transporter.sendMail({ from: SMTP_USER, to: email, subject: 'You\'re Invited! Please RSVP', html });
+  await console.log(`Sending invite to ${email}`, { from: SMTP_USER, to: email, subject: 'You\'re Invited! Please RSVP', html });
+  if (SMTP_USER && SMTP_PASS) {
+    await transporter.sendMail({ from: SMTP_USER, to: email, subject: 'You\'re Invited! Please RSVP', html });
+  }
 }
 
 export async function notifyAdmin(att: any, rsvp: string, partySize: number) {
