@@ -5,6 +5,8 @@ import * as bodyParser from 'body-parser';
 import * as nodemailer from 'nodemailer';
 import * as Database from 'better-sqlite3';
 import * as crypto from 'crypto';
+import session from 'express-session';
+import csurf from 'csurf';
 
 // Config loader (e.g. dotenv)
 // import dotenv from 'dotenv'; dotenv.config();
@@ -18,6 +20,9 @@ const NTFY_TOPIC = process.env.NTFY_TOPIC;
 const NTFY_BASE_URL = (process.env.NTFY_BASE_URL ?? 'https://ntfy.sh').replace(/\/+$/, '');
 const NTFY_USER = process.env.NTFY_USER;
 const NTFY_PASS = process.env.NTFY_PASS;
+// IMPORTANT: Use a strong, random secret from environment variables in production
+const SESSION_SECRET = process.env.SESSION_SECRET || 'your-super-secret-and-long-random-string';
+
 
 export const app = express();
 app.set('view engine', 'ejs');
@@ -26,6 +31,27 @@ app.set('views', path.join(__dirname, '../views'));
 app.use(bodyParser.urlencoded({ extended: true }));
 // Assuming 'public' directory is copied to 'dist/public' during build
 app.use('/static', express.static(path.join(__dirname, 'public')));
+
+// Session middleware
+app.use(session({
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false, // Set to true if you want to store session for all users, false for GDPR compliance until login/consent
+  // cookie: { secure: process.env.NODE_ENV === 'production' } // Use secure cookies in production (requires HTTPS)
+}));
+
+// CSRF protection middleware
+// Note: csurf must be after session middleware and body-parser
+const csrfProtection = csurf();
+app.use(csrfProtection);
+
+// Middleware to make CSRF token available to all views (optional, but convenient)
+// Or pass it explicitly in each route handler
+app.use((req, res, next) => {
+  res.locals.csrfToken = req.csrfToken();
+  next();
+});
+
 
 export const db = new Database.default(DB_PATH);
 db.prepare(`CREATE TABLE IF NOT EXISTS events (
@@ -149,6 +175,7 @@ app.get('/admin', (req, res) => {
     ...event,
     stats: getEventAttendeeStats(event.id)
   }));
+  // csrfToken is available via res.locals.csrfToken due to the middleware
   res.render('admin', { events });
 });
 
@@ -165,6 +192,7 @@ app.get('/admin/:eventId', (req, res) => {
   const allEvents = db.prepare('SELECT id, title FROM events WHERE id != ? ORDER BY title').all(eventId) as {id: number, title: string}[];
   const attendeeStats = getEventAttendeeStats(eventId);
 
+  // csrfToken is available via res.locals.csrfToken
   res.render('event-admin', { event, attendees, allEvents, attendeeStats });
 });
 
@@ -248,6 +276,7 @@ app.get('/rsvp/:tok', (req, res) => {
             res.status(404).send('Invalid link');
             return;
         }
+        // csrfToken is available via res.locals.csrfToken
         res.render('rsvp', { attendee });
 });
 
@@ -270,6 +299,18 @@ app.post('/rsvp/:token', async (req, res) => {
         db.prepare('UPDATE attendees SET rsvp=?,party_size=?,responded_at=? WHERE token=?')
             .run(rsvp, +party_size, now, req.params.token);
         await notifyAdmin(a, rsvp, +party_size);
+        // csrfToken is available via res.locals.csrfToken for the thanks page if it had forms
         res.render('thanks', { rsvp, party_size });
     }
 );
+
+// CSRF Error Handler
+// This must be defined after all routes that use CSRF protection
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err.code === 'EBADCSRFTOKEN') {
+    console.error('CSRF Token Error:', err);
+    res.status(403).send('Form tampered with or session expired - please try again.');
+  } else {
+    next(err);
+  }
+});

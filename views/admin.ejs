@@ -14,6 +14,7 @@
     <div class="form-section">
       <h2>Manage Events</h2>
       <form action="/admin/event" method="POST">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <h3>Create New Event</h3>
         <label for="title">Title:</label>
         <input type="text" id="title" name="title" required />

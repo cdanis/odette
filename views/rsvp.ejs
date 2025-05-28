@@ -17,6 +17,7 @@
     <% } %>
 
     <form action="/rsvp/<%= attendee.token %>" method="POST" class="rsvp-form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <label for="name_disabled">
         Your Name:
         <input type="text" id="name_disabled" name="name_display" value="<%= attendee.name %>" disabled />
