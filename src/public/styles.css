@@ -78,6 +78,17 @@ input[type="submit"]:hover {
   background-color: #4cae4c;
 }
 
+button:disabled,
+input[type="submit"]:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+button:disabled:hover,
+input[type="submit"]:disabled:hover {
+  background-color: #aaa;
+}
+
 .form-section {
   margin-bottom: 30px;
   padding: 20px;
@@ -135,6 +146,7 @@ th {
   border-radius: 4px;
   padding: 15px;
   box-shadow: 0 0 5px rgba(0,0,0,0.1);
+  margin-bottom: 1em;
 }
 
 @media (max-width: 768px) {
