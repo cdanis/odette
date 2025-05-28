@@ -4,7 +4,7 @@
 
 * should all the user-facing IDs be random strings instead of autoincrement ?
 
-* restyle with bulma.
+* restyle with bulma.  no! tailwind???
 
 * alternate names?
   * quelle est demande (or similar) (what's the ask lol)
