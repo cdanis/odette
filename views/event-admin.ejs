@@ -76,7 +76,12 @@
 
     <div class="form-section">
       <form action="/admin/events/<%= event.id %>/send-invites" method="POST" style="margin-bottom: 20px;">
-        <button type="submit" class="action-button">Send All Pending Invites for This Event</button>
+        <button type="submit" class="action-button" <% if (typeof attendeeStats !== 'undefined' && attendeeStats.guestsNotSent === 0) { %>disabled<% } %>>
+          Send All Pending Invites for This Event
+        </button>
+        <% if (typeof attendeeStats !== 'undefined' && attendeeStats.guestsNotSent === 0) { %>
+          <small>(No pending invites to send)</small>
+        <% } %>
       </form>
     </div>
 
