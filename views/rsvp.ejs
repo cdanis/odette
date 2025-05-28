@@ -61,7 +61,7 @@
                 if (timestamp && !isNaN(Number(timestamp))) {
                     // 'L LT' is a localized format like "MM/DD/YYYY h:mm A"
                     // You can change the format string as needed, e.g., 'dddd, MMMM D, YYYY h:mm A' for a fuller format
-                    el.textContent = dayjs(Number(timestamp)).format('L LT');
+                    el.textContent = dayjs(Number(timestamp)).format('dddd, MMMM D, YYYY LT');
                 }
             });
         });
