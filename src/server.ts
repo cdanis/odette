@@ -1,5 +1,5 @@
 // src/server.ts
-import * as express from 'express';
+import express from 'express';
 import * as path from 'path';
 import * as bodyParser from 'body-parser';
 import * as nodemailer from 'nodemailer';
@@ -19,7 +19,7 @@ const NTFY_BASE_URL = (process.env.NTFY_BASE_URL ?? 'https://ntfy.sh').replace(/
 const NTFY_USER = process.env.NTFY_USER;
 const NTFY_PASS = process.env.NTFY_PASS;
 
-export const app = express.default();
+export const app = express();
 app.set('view engine', 'ejs');
 // Assuming 'views' directory is at the project root, sibling to 'src' and 'dist'
 app.set('views', path.join(__dirname, '../views'));
