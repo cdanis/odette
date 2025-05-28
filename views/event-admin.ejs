@@ -123,6 +123,7 @@
           <form action="/admin/attendee" method="POST">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <input type="hidden" name="event_id" value="<%= event.id %>" />
+            <input type="hidden" name="token" />  <%# TODO: very beginning of turning this into an edit/update form as well as an insert form %>
             <label for="name">Name:</label>
             <input type="text" id="name" name="name" required />
             <label for="email">Email:</label>
