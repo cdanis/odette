@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="/static/styles.css" />
   <title>Admin - <%= event.title %></title>
+  <!-- DataTables CSS -->
+  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
 </head>
 <body>
   <div class="container">
@@ -93,7 +95,7 @@
 
       <h3>Current Attendees (<%= attendees.length %>)</h3>
       <% if (attendees.length > 0) { %>
-        <table>
+        <table id="attendeesTable" class="display">
           <thead>
             <tr>
               <th>Name</th>
@@ -144,5 +146,22 @@
       <% } %>
     </div>
   </div>
+
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+  <!-- DataTables JS -->
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+
+  <script>
+    $(document).ready(function() {
+      $('#attendeesTable').DataTable({
+        // You can add DataTables options here if needed
+        // For example, to disable sorting on the last column (Actions):
+        // "columnDefs": [
+        //   { "orderable": false, "targets": 6 }
+        // ]
+      });
+    });
+  </script>
 </body>
 </html>
