@@ -53,7 +53,7 @@
     </div>
     <hr style="margin: 20px 0;">
 
-    <p class="date">Current Event Date: <%= new Date(event.date).toLocaleDateString() %></p>
+    <p class="date">Current Event Date: <%= new Date(event.date).toISOString() %></p>
     <% if (event.description) { %>
       <p class="description">Current Description: <%= event.description %></p>
     <% } %>
