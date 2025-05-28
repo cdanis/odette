@@ -10,7 +10,7 @@
   <div class="container">
     <h1>Thanks for Your Response</h1>
     <% if (rsvp === 'yes') { %>
-      <p>Awesome! We’re looking forward to seeing you and your party of <%= party_size %>.</p>
+      <p>Awesome! We’re looking forward to seeing you<% if (party_size > 1) { %> and your party of <%= party_size %><% } else { %> there<% } %>.</p>
     <% } else { %>
       <p>Sorry you can’t make it. We appreciate you letting us know.</p>
     <% } %>

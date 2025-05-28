@@ -9,24 +9,24 @@
 <body>
   <div class="container">
     <h1><%= attendee.event_title %></h1>
-    <p class="date"><%= new Date(attendee.date).toLocaleDateString() %></p>
-    <% if (attendee.description) { %>
-      <p class="description"><%= attendee.description %></p>
+    <p class="date"><%= new Date(attendee.event_date).toLocaleDateString() %></p> <!-- Changed attendee.date to attendee.event_date -->
+    <% if (attendee.event_desc) { %> <!-- Changed attendee.description to attendee.event_desc -->
+      <p class="description"><%= attendee.event_desc %></p>
     <% } %>
 
     <form action="/rsvp/<%= attendee.token %>" method="POST" class="rsvp-form">
-      <label>
-        <span>Your Name:</span>
-        <input type="text" name="name" value="<%= attendee.name %>" disabled />
+      <label for="name_disabled"> <!-- Added for attribute for accessibility -->
+        Your Name:
+        <input type="text" id="name_disabled" name="name_display" value="<%= attendee.name %>" disabled /> <!-- Changed name to name_display to avoid submission -->
       </label>
       <fieldset>
         <legend>Will you attend?</legend>
-        <label><input type="radio" name="rsvp" value="yes" required /> Yes</label>
-        <label><input type="radio" name="rsvp" value="no" /> No</label>
+        <label><input type="radio" name="rsvp" value="yes" <% if (attendee.rsvp === 'yes') { %>checked<% } %> required /> Yes</label>
+        <label><input type="radio" name="rsvp" value="no" <% if (attendee.rsvp === 'no') { %>checked<% } %> /> No</label>
       </fieldset>
-      <label>
-        <span>Party Size:</span>
-        <input type="number" name="party_size" min="1" value="<%= attendee.party_size %>" required />
+      <label for="party_size_rsvp"> <!-- Added for attribute for accessibility -->
+        Party Size:
+        <input type="number" id="party_size_rsvp" name="party_size" min="1" value="<%= attendee.party_size %>" required />
       </label>
       <button type="submit">Submit RSVP</button>
     </form>
