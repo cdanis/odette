@@ -29,3 +29,9 @@
   * quelle est demande (or similar) (what's the ask lol)
   * odette
   * papillon (🦋)
+
+
+
+# out of scope
+* multiple admin users / multitenancy
+* any sort of oauth/login that isn't provided by reverse proxy just for /admin interface
