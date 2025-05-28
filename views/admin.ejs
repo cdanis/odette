@@ -32,11 +32,11 @@
               <th>Title</th>
               <th>Date</th>
               <th>Description</th>
-              <th>Attending</th>
-              <th>Not Attending</th>
-              <th>Awaiting Reply</th>
-              <th>Not Sent</th>
               <th>Potential Guests</th>
+              <th>Not Sent</th>
+              <th>Sent, Awaiting Reply</th>
+              <th>RSVP: Attending</th>
+              <th>RSVP: Regrets</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -46,11 +46,11 @@
                 <td><%= event.title %></td>
                 <td><%= new Date(event.date).toLocaleDateString() %></td>
                 <td><%= event.description || 'N/A' %></td>
+                <td><%= event.stats.potentialGuests %></td>
+                <td><%= event.stats.guestsNotSent %></td>
+                <td><%= event.stats.guestsAwaitingReply %></td>
                 <td><%= event.stats.guestsAttending %></td>
                 <td><%= event.stats.guestsNotAttending %></td>
-                <td><%= event.stats.guestsAwaitingReply %></td>
-                <td><%= event.stats.guestsNotSent %></td>
-                <td><%= event.stats.potentialGuests %></td>
                 <td>
                   <a href="/admin/<%= event.id %>" class="action-button">Manage Attendees</a>
                 </td>
