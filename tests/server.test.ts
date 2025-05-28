@@ -38,7 +38,7 @@ describe('upsertAttendee', () => {
 
   it('inserts a new attendee when none exists', () => {
     upsertAttendee(eventId, 'Alice', 'alice@example.com', 2);
-    const row = db.prepare('SELECT * FROM attendees WHERE email = ?').get('alice@example.com');
+    const row = db.prepare('SELECT * FROM attendees WHERE email = ?').get('alice@example.com') as any;
     expect(row).toBeDefined();
     expect(row.name).toBe('Alice');
     expect(row.party_size).toBe(2);
@@ -47,20 +47,20 @@ describe('upsertAttendee', () => {
 
   it('updates party_size if attendee already exists', () => {
     upsertAttendee(eventId, 'Bob', 'bob@example.com', 1);
-    const before = db.prepare('SELECT party_size FROM attendees WHERE email = ?').get('bob@example.com');
+    const before = db.prepare('SELECT party_size FROM attendees WHERE email = ?').get('bob@example.com') as any;
     expect(before.party_size).toBe(1);
 
     // Update to party_size 4
     upsertAttendee(eventId, 'Bob', 'bob@example.com', 4);
-    const after = db.prepare('SELECT party_size FROM attendees WHERE email = ?').get('bob@example.com');
+    const after = db.prepare('SELECT party_size FROM attendees WHERE email = ?').get('bob@example.com') as any;
     expect(after.party_size).toBe(4);
   });
 
   it('does not change party_size if unchanged', () => {
     upsertAttendee(eventId, 'Carol', 'carol@example.com', 3);
-    const before = db.prepare('SELECT party_size FROM attendees WHERE email = ?').get('carol@example.com');
+    const before = db.prepare('SELECT party_size FROM attendees WHERE email = ?').get('carol@example.com') as any;
     upsertAttendee(eventId, 'Carol', 'carol@example.com', 3);
-    const after = db.prepare('SELECT party_size FROM attendees WHERE email = ?').get('carol@example.com');
+    const after = db.prepare('SELECT party_size FROM attendees WHERE email = ?').get('carol@example.com') as any;
     expect(after.party_size).toBe(before.party_size);
   });
 });
