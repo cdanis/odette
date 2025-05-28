@@ -289,21 +289,24 @@ app.post('/admin/attendee/:attendeeId/update-party-size', (req, res) => {
   if (!attendeeInfo) {
     // Optionally: add a flash message for "attendee not found"
     console.warn(`Attempt to update party size for non-existent attendee ID ${attendeeId}`);
-    return res.status(404).send('Attendee not found.'); // Or redirect to a generic admin error page
+    res.status(404).send('Attendee not found.'); // Or redirect to a generic admin error page
+    return;
   }
 
   // Validate party size input
   if (isNaN(newPartySize) || newPartySize < 1) {
     // Optionally: add a flash message for "invalid party size"
     console.warn(`Invalid party size submitted for attendee ${attendeeId}: ${req.body.party_size}. Redirecting.`);
-    return res.redirect(`/admin/${attendeeInfo.event_id}`); // Redirect back, maybe with an error query param or flash message
+    res.redirect(`/admin/${attendeeInfo.event_id}`); // Redirect back, maybe with an error query param or flash message
+    return;
   }
 
   // Crucial check: only update if RSVP has not been submitted
   if (attendeeInfo.rsvp !== null) {
     // Optionally: add a flash message indicating why the update was not performed
     console.warn(`Attempt to update party size for attendee ${attendeeId} who has already RSVP'd. No update performed. Redirecting.`);
-    return res.redirect(`/admin/${attendeeInfo.event_id}`);
+    res.redirect(`/admin/${attendeeInfo.event_id}`);
+    return ;
   }
 
   // Perform the update only if rsvp is NULL
