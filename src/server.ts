@@ -127,10 +127,15 @@ export function upsertAttendee(event_id: number, name: string, email: string, pa
   const stmtSelect = db.prepare('SELECT id, party_size FROM attendees WHERE event_id=? AND email=?');
   const existing = stmtSelect.get(event_id, email) as ExistingAttendee | undefined;
   if (existing) {
-    if (existing.party_size !== party_size) {
-      db.prepare('UPDATE attendees SET party_size=? WHERE id=?')
-        .run(party_size, existing.id);
-    }
+    // Only update party_size if no RSVP has been submitted yet for this existing attendee
+    const rsvpStatus = db.prepare('SELECT rsvp FROM attendees WHERE id = ?').get(existing.id) as { rsvp: string | null } | undefined;
+    if (rsvpStatus && rsvpStatus.rsvp === null) { // Check if RSVP is null (no response yet)
+        if (existing.party_size !== party_size) { // And if party size actually needs updating
+            db.prepare('UPDATE attendees SET party_size=? WHERE id=?')
+              .run(party_size, existing.id);
+        }
+    } // If rsvpStatus is not null OR rsvp is not null (i.e., a response exists), do nothing to party_size here.
+      // This prevents batch add/copy from overwriting party sizes of already responded guests.
   } else {
     const token = generateToken();
     db.prepare('INSERT INTO attendees (event_id,name,email,party_size,token) VALUES (?,?,?,?,?)')
@@ -273,6 +278,52 @@ app.post('/admin/events/:eventId/send-invites', async (req, res) => {
   }
   res.redirect(`/admin/${eventId}`);
 });
+
+app.post('/admin/attendee/:attendeeId/update-party-size', (req, res) => {
+  const attendeeId = +req.params.attendeeId;
+  const newPartySize = parseInt(req.body.party_size, 10);
+
+  const attendeeInfo = db.prepare('SELECT event_id, rsvp FROM attendees WHERE id = ?')
+                         .get(attendeeId) as { event_id: number; rsvp: string | null } | undefined;
+
+  if (!attendeeInfo) {
+    // Optionally: add a flash message for "attendee not found"
+    console.warn(`Attempt to update party size for non-existent attendee ID ${attendeeId}`);
+    return res.status(404).send('Attendee not found.'); // Or redirect to a generic admin error page
+  }
+
+  // Validate party size input
+  if (isNaN(newPartySize) || newPartySize < 1) {
+    // Optionally: add a flash message for "invalid party size"
+    console.warn(`Invalid party size submitted for attendee ${attendeeId}: ${req.body.party_size}. Redirecting.`);
+    return res.redirect(`/admin/${attendeeInfo.event_id}`); // Redirect back, maybe with an error query param or flash message
+  }
+
+  // Crucial check: only update if RSVP has not been submitted
+  if (attendeeInfo.rsvp !== null) {
+    // Optionally: add a flash message indicating why the update was not performed
+    console.warn(`Attempt to update party size for attendee ${attendeeId} who has already RSVP'd. No update performed. Redirecting.`);
+    return res.redirect(`/admin/${attendeeInfo.event_id}`);
+  }
+
+  // Perform the update only if rsvp is NULL
+  const result = db.prepare('UPDATE attendees SET party_size = ? WHERE id = ? AND rsvp IS NULL')
+                   .run(newPartySize, attendeeId);
+
+  if (result.changes === 0 && attendeeInfo.rsvp === null) {
+    // This could happen if, between page load and form submission, the attendee RSVP'd through another means,
+    // or if the party size submitted was the same as the existing one (though the form should prefill).
+    // Or, more likely, if the rsvp status changed just before the update.
+    console.warn(`Party size update for attendee ${attendeeId} (who had no RSVP) did not result in changes. Current DB rsvp: ${attendeeInfo.rsvp}. Submitted party size: ${newPartySize}.`);
+    // Optionally: add a flash message
+  } else if (result.changes > 0) {
+    // Optionally: add a success flash message
+    console.log(`Party size updated for attendee ${attendeeId} to ${newPartySize}.`);
+  }
+  
+  res.redirect(`/admin/${attendeeInfo.event_id}`);
+});
+
 
 app.get('/user/:id', (req, res) => {
     res.send(`user ${req.params.id}`)

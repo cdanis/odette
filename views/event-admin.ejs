@@ -25,6 +25,16 @@
       margin-bottom: 5px;
       color: #333;
     }
+    .party-size-form input[type="number"] {
+      width: 60px;
+      padding: 5px;
+      margin-right: 5px;
+      box-sizing: border-box;
+    }
+    .party-size-form button {
+      padding: 5px 10px;
+      font-size: 0.9em;
+    }
   </style>
 </head>
 <body>
@@ -172,7 +182,17 @@
               <tr>
                 <td><%= attendee.name %></td>
                 <td><%= attendee.email %></td>
-                <td><%= attendee.party_size %></td>
+                <td>
+                  <% if (!attendee.rsvp) { %>
+                    <form action="/admin/attendee/<%= attendee.id %>/update-party-size" method="POST" class="party-size-form" style="display: inline-flex; align-items: center;">
+                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <input type="number" name="party_size" value="<%= attendee.party_size %>" min="1" required>
+                      <button type="submit">Update</button>
+                    </form>
+                  <% } else { %>
+                    <%= attendee.party_size %>
+                  <% } %>
+                </td>
                 <td>
                   <% if (attendee.is_sent) { %>
                     <a href="/rsvp/<%= attendee.token %>" target="_blank">Yes</a>
