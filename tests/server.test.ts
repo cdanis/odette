@@ -37,11 +37,20 @@ describe('upsertAttendee', () => {
   });
 
   it('inserts a new attendee when none exists', () => {
-    upsertAttendee(eventId, 'Alice', 'alice@example.com', 2);
+    upsertAttendee(eventId, 'Daphne', 'd@d.c', 2);
+    const dRow = db.prepare('SELECT * FROM attendees WHERE email = ?').get('d@d.c') as any;
+    expect(dRow).toBeDefined();
+    expect(dRow.name).toBe('Daphne');
+    expect(dRow.party_size).toBe(2);
+    expect(dRow.token).toHaveLength(32);
+  });
+
+  it('uses a default party_size of 1 if not provided', () => {
+    upsertAttendee(eventId, 'Alice', 'alice@example.com');
     const row = db.prepare('SELECT * FROM attendees WHERE email = ?').get('alice@example.com') as any;
     expect(row).toBeDefined();
     expect(row.name).toBe('Alice');
-    expect(row.party_size).toBe(2);
+    expect(row.party_size).toBe(1); // Default party size
     expect(row.token).toHaveLength(32);
   });
 

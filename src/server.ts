@@ -141,7 +141,7 @@ export function upsertAttendee(event_id: number, name: string, email: string, pa
   } else {
     const token = generateToken();
     db.prepare('INSERT INTO attendees (event_id,name,email,party_size,token) VALUES (?,?,?,?,?)')
-      .run(event_id, name, email, party_size, token);
+      .run(event_id, name, email, party_size || 1, token);
   }
 }
 
