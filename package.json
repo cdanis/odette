@@ -12,6 +12,7 @@
   "author": "Chris Danis <cdanis@gmail.com>",
   "license": "AGPL-3.0-or-later",
   "dependencies": {
+    "addressparser": "^1.0.1",
     "better-sqlite3": "^11.10.0",
     "body-parser": "^2.2.0",
     "csurf": "^1.11.0",
@@ -21,6 +22,7 @@
     "nodemailer": "^7.0.3"
   },
   "devDependencies": {
+    "@types/addressparser": "^1.0.3",
     "@types/better-sqlite3": "^7.6.13",
     "@types/csurf": "^1.11.5",
     "@types/ejs": "^3.1.5",
