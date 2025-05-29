@@ -5,6 +5,15 @@
   <title>Admin - <%= event.title %></title>
   <!-- DataTables CSS -->
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+  <style>
+    .current-banner-image {
+      max-width: 300px;
+      max-height: 200px;
+      margin-top: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #ddd;
+    }
+  </style>
 </head>
 <body>
   <%
@@ -28,7 +37,10 @@
     <!-- Edit Event Details Section -->
     <div class="form-section">
       <h2>Edit Event Details</h2>
-      <form action="/admin/event/<%= event.id %>/update" method="POST">
+      <% if (locals.error) { %>
+        <p style="color: red;"><%= locals.error %></p>
+      <% } %>
+      <form action="/admin/event/<%= event.id %>/update" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <div>
           <label for="title">Event Title:</label>
@@ -41,6 +53,17 @@
         <div>
           <label for="description">Description:</label>
           <textarea id="description" name="description" rows="3"><%= event.description || '' %></textarea>
+        </div>
+        <div>
+          <label for="banner_image">Event Banner Image (Optional):</label>
+          <% if (event.banner_image_filename) { %>
+            <p>Current Banner:</p>
+            <img src="/static/uploads/event-banners/<%= event.banner_image_filename %>" alt="Current Event Banner" class="current-banner-image">
+            <p><small>Uploading a new image will replace the current one.</small></p>
+          <% } else { %>
+            <p><small>No banner image uploaded yet.</small></p>
+          <% } %>
+          <input type="file" id="banner_image" name="banner_image" accept="image/png, image/jpeg, image/gif">
         </div>
         <button type="submit" class="action-button">Update Event Details</button>
       </form>
@@ -172,7 +195,7 @@
                   <% if (!attendee.rsvp) { %>
                     <form action="/admin/attendee/<%= attendee.id %>/update-party-size" method="POST" class="party-size-form" style="display: inline-flex; align-items: center;">
                       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                      <input type="number" name="party_size" value="<%= attendee.party_size %>" min="1" required>
+                      <input type="number" name="party_size" value="<%= attendee.party_size %>" min="1" required style="width: 60px; margin-right: 5px;">
                       <button type="submit">Update</button>
                     </form>
                   <% } else { %>
@@ -238,6 +261,18 @@
         //   { "orderable": false, "targets": 6 } 
         // ]
       });
+       // Check for error query parameter and display it
+      const urlParams = new URLSearchParams(window.location.search);
+      const error = urlParams.get('error');
+      if (error && !document.querySelector('.form-section p[style="color: red;"]')) { // Avoid duplicate error messages if already rendered server-side
+          const errorP = document.createElement('p');
+          errorP.style.color = 'red';
+          errorP.textContent = decodeURIComponent(error);
+          const formSection = document.querySelector('.form-section h2'); // Insert after h2
+          if (formSection && formSection.parentNode) {
+            formSection.parentNode.insertBefore(errorP, formSection.nextSibling);
+          }
+      }
     });
   </script>
 </body>

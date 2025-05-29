@@ -6,11 +6,27 @@
     <title>
         RSVP - <%= attendee.event_title %>
     </title>
+    <style>
+        .event-banner {
+            width: 100%;
+            max-height: 300px; /* Adjust as needed */
+            object-fit: cover; /* Crop image to fit, maintaining aspect ratio */
+            margin-bottom: 1rem;
+            border-radius: 3px; /* Optional: if your card has rounded corners */
+        }
+        .card {
+            /* Ensure card can contain the image nicely */
+            overflow: hidden; /* If banner is first child and has different radius */
+        }
+    </style>
 </head>
 
 <body>
     <div class="container">
         <div class="card">  <%# todo: separate to a sub-'component' template %>
+            <% if (attendee.event_banner_image_filename) { %>
+                <img src="/static/uploads/event-banners/<%= attendee.event_banner_image_filename %>" alt="<%= attendee.event_title %> Banner" class="event-banner">
+            <% } %>
             <div class="card-header">
                 <h1 class="card-header-title">
                     <%= attendee.event_title %>
@@ -68,6 +84,22 @@
                     el.textContent = dayjs(Number(timestamp)).format('dddd, MMMM D, YYYY LT');
                 }
             });
+
+            // Basic reactivity for party size based on RSVP choice
+            const rsvpRadios = document.querySelectorAll('input[name="rsvp"]');
+            const partySizeInput = document.getElementById('party_size_rsvp');
+
+            function togglePartySize() {
+                if (document.querySelector('input[name="rsvp"][value="no"]:checked')) {
+                    partySizeInput.disabled = true;
+                    partySizeInput.style.backgroundColor = '#e9ecef'; // Light grey out
+                } else {
+                    partySizeInput.disabled = false;
+                    partySizeInput.style.backgroundColor = '';
+                }
+            }
+            rsvpRadios.forEach(radio => radio.addEventListener('change', togglePartySize));
+            togglePartySize(); // Initial state
         });
     </script>
 </body>
