@@ -121,7 +121,6 @@
         <p style="font-size: 0.9em; color: #555; margin-bottom: 10px;">
           Paste a list of email recipients (e.g., from an email's "To:" or "Cc:" field).<br>
           Each will be added with a party size of 1. Deduplicates based on email address for this event.<br>
-          If an existing attendee (by email) has not yet RSVP'd, their party size may be updated to 1.
         </p>
         <form action="/admin/event/<%= event.id %>/attendees/parse-emails" method="POST">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">

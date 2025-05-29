@@ -125,14 +125,14 @@ export async function notifyAdmin(att: any, rsvp: string, partySize: number) {
 
 interface ExistingAttendee { id: number; party_size: number; }
 
-export function upsertAttendee(event_id: number, name: string, email: string, party_size: number) {
+export function upsertAttendee(event_id: number, name: string, email: string, party_size?: number) {
   const stmtSelect = db.prepare('SELECT id, party_size FROM attendees WHERE event_id=? AND email=?');
   const existing = stmtSelect.get(event_id, email) as ExistingAttendee | undefined;
   if (existing) {
     // Only update party_size if no RSVP has been submitted yet for this existing attendee
     const rsvpStatus = db.prepare('SELECT rsvp FROM attendees WHERE id = ?').get(existing.id) as { rsvp: string | null } | undefined;
     if (rsvpStatus && rsvpStatus.rsvp === null) { // Check if RSVP is null (no response yet)
-        if (existing.party_size !== party_size) { // And if party size actually needs updating
+        if (party_size && existing.party_size !== party_size) { // And if party size actually needs or wants updating
             db.prepare('UPDATE attendees SET party_size=? WHERE id=?')
               .run(party_size, existing.id);
         }
@@ -235,7 +235,7 @@ app.post('/admin/event/:eventId/update', (req, res) => {
 
 app.post('/admin/attendee', (req, res) => {
   const eventId = +req.body.event_id;
-  upsertAttendee(eventId, req.body.name, req.body.email, +req.body.party_size||1);
+  upsertAttendee(eventId, req.body.name, req.body.email, req.body.party_size);
   res.redirect(`/admin/${eventId}`);
 });
 
@@ -266,7 +266,7 @@ app.post('/admin/event/:eventId/attendees/parse-emails', (req, res) => {
         const email = parsed.address;
         // Use provided name, or fallback to local part of email if name is empty
         const name = parsed.name || email.substring(0, email.lastIndexOf('@')).replace(/[."']/g, ' ').trim();
-        upsertAttendee(eventId, name, email, 1); // Default party size to 1
+        upsertAttendee(eventId, name, email);
       }
     });
   } catch (error) {
