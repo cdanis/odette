@@ -1,5 +1,6 @@
 # MVP
 * FEAT: batch parse an email addressee list.
+* FEAT: last modified timestamp on attendees
 * FEAT: interactive (htmlx) editing of events and attendees
   * debounce, replace
   * use same templates as pseudo-components

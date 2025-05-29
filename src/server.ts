@@ -296,7 +296,7 @@ app.post('/admin/attendees/send/:attendeeId', async (req, res) => {
     if (!event) {
         // This case should ideally not happen if data integrity is maintained
         console.error(`Event not found for attendee ID ${attendeeId} with event_id ${a.event_id}`);
-        res.status(500).send('Error: Associated event not found.');
+        res.status(404).send('Error: Associated event not found.');
         return;
     }
     await sendInvitation(a.name, a.email, a.token, event.title);
