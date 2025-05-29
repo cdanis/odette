@@ -98,12 +98,13 @@ export function generateToken(): string {
   return crypto.randomBytes(16).toString('hex');
 }
 
-export async function sendInvitation(name: string, email: string, token: string) {
+export async function sendInvitation(name: string, email: string, token: string, eventTitle: string) {
   const link = `${APP_BASE_URL}/rsvp/${token}`;
   const html = `<p>Hi ${name},</p>\n<p>Please RSVP here: <a href=\"${link}\">${link}</a></p>`;
-  await console.log(`Sending invite to ${email}`, { from: SMTP_USER, to: email, subject: 'You\'re Invited! Please RSVP', html });
+  const subject = `Please RSVP for ${eventTitle}`;
+  await console.log(`Sending invite to ${email}`, { from: SMTP_USER, to: email, subject, html });
   if (SMTP_USER && SMTP_PASS) {
-    await transporter.sendMail({ from: SMTP_USER, to: email, subject: 'You\'re Invited! Please RSVP', html });
+    await transporter.sendMail({ from: SMTP_USER, to: email, subject, html });
   }
 }
 
