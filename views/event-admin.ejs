@@ -115,8 +115,25 @@
         </div>
       </div>
 
+      <!-- NEW: Parse Email Addresses from "To:" Field -->
+      <div style="margin-top: 20px; margin-bottom: 20px;">
+        <h3>Parse Email Addresses from "To:" Field</h3>
+        <p style="font-size: 0.9em; color: #555; margin-bottom: 10px;">
+          Paste a list of email recipients (e.g., from an email's "To:" or "Cc:" field).<br>
+          Each will be added with a party size of 1. Deduplicates based on email address for this event.<br>
+          If an existing attendee (by email) has not yet RSVP'd, their party size may be updated to 1.
+        </p>
+        <form action="/admin/event/<%= event.id %>/attendees/parse-emails" method="POST">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <label for="email_field_data">Paste Email Field Content:</label>
+          <textarea id="email_field_data" name="email_field_data" rows="5" placeholder="&quot;Friendly Name&quot; &lt;name@example.com&gt;, another@example.org, Person &lt;person@server.com&gt;" required style="width: 100%; box-sizing: border-box; margin-top: 5px; margin-bottom: 10px;"></textarea>
+          <button type="submit">Parse and Add Attendees</button>
+        </form>
+      </div>
+      <!-- END NEW FORM SECTION -->
+
       <% if (allEvents.length > 0) { %>
-      <div class="form-section">
+      <div class="form-section" style="margin-top: 20px;"> <!-- Added margin-top for spacing if previous section is also a form-section or similar block -->
         <h3>Copy Attendees to This Event (<%= event.title %>)</h3>
         <form action="/admin/attendees/copy" method="POST">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">

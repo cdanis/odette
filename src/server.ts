@@ -22,6 +22,7 @@ import * as Database from 'better-sqlite3';
 import * as crypto from 'crypto';
 import session from 'express-session';
 import csurf from 'csurf';
+import addressparser from 'addressparser'; // Added for email parsing feature
 
 // Config loader (e.g. dotenv)
 // import dotenv from 'dotenv'; dotenv.config();
@@ -245,6 +246,33 @@ app.post('/admin/attendees/batch', (req, res) => {
     const [name, email, party] = line.split(',').map((s: string) => s.trim());
     if (name && email) upsertAttendee(eventId, name, email, +(party||1));
   });
+  res.redirect(`/admin/${eventId}`);
+});
+
+app.post('/admin/event/:eventId/attendees/parse-emails', (req, res) => {
+  const eventId = +req.params.eventId;
+  const emailFieldData = req.body.email_field_data as string;
+
+  if (!emailFieldData) {
+    // Optionally: add a flash message for empty input
+    return res.redirect(`/admin/${eventId}`);
+  }
+
+  try {
+    const parsedAddresses = addressparser(emailFieldData);
+    parsedAddresses.forEach(parsed => {
+      if (parsed.address) { // Ensure there's an email address
+        const email = parsed.address;
+        // Use provided name, or fallback to local part of email if name is empty
+        const name = parsed.name || email.substring(0, email.lastIndexOf('@')).replace(/[."']/g, ' ').trim();
+        upsertAttendee(eventId, name, email, 1); // Default party size to 1
+      }
+    });
+  } catch (error) {
+    console.error("Error parsing email field data:", error);
+    // Optionally: add a flash message to inform the user of an error
+  }
+
   res.redirect(`/admin/${eventId}`);
 });
 
