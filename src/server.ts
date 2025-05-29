@@ -245,7 +245,7 @@ app.post('/admin/attendees/batch', (req, res) => {
   const eventId = +req.body.event_id;
   req.body.csv.split(/\r?\n/).forEach((line: string) => {
     const [name, email, party] = line.split(',').map((s: string) => s.trim());
-    if (name && email) upsertAttendee(eventId, name, email, +(party||1));
+    if (name && email) upsertAttendee(eventId, name, email, (party||null));
   });
   res.redirect(`/admin/${eventId}`);
 });
