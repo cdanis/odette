@@ -10,7 +10,7 @@
 
 <body>
     <div class="container">
-        <div class="card">
+        <div class="card">  <%# todo: separate to a sub-'component' template %>
             <div class="card-header">
                 <h1 class="card-header-title">
                     <%= attendee.event_title %>
@@ -25,6 +25,8 @@
                 <p class="description"><%- attendee.event_desc %></p>
                 <% } %>
         </div>
+
+        <%# todo: htmx island %>
         <form action="/rsvp/<%= attendee.token %>" method="POST" class="rsvp-form">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <label for="name_disabled">
