@@ -292,7 +292,14 @@ app.post('/admin/attendees/send/:attendeeId', async (req, res) => {
   const attendeeId = +req.params.attendeeId;
   const a = db.prepare('SELECT id, name, email, token, event_id FROM attendees WHERE id=?').get(attendeeId) as InviteeWithEventId | undefined;
   if (a) {
-    await sendInvitation(a.name, a.email, a.token);
+    const event = db.prepare('SELECT title FROM events WHERE id = ?').get(a.event_id) as { title: string } | undefined;
+    if (!event) {
+        // This case should ideally not happen if data integrity is maintained
+        console.error(`Event not found for attendee ID ${attendeeId} with event_id ${a.event_id}`);
+        res.status(500).send('Error: Associated event not found.');
+        return;
+    }
+    await sendInvitation(a.name, a.email, a.token, event.title);
     db.prepare('UPDATE attendees SET is_sent=1 WHERE id=?').run(attendeeId);
     res.redirect(`/admin/${a.event_id}`);
   } else {
@@ -302,9 +309,17 @@ app.post('/admin/attendees/send/:attendeeId', async (req, res) => {
 
 app.post('/admin/events/:eventId/send-invites', async (req, res) => {
   const eventId = +req.params.eventId;
+  const event = db.prepare('SELECT title FROM events WHERE id = ?').get(eventId) as { title: string } | undefined;
+
+  if (!event) {
+    console.error(`Event not found with ID ${eventId} when trying to send batch invites.`);
+    res.status(404).send('Event not found.');
+    return;
+  }
+
   const pending = db.prepare('SELECT id,name,email,token FROM attendees WHERE event_id=? AND is_sent=0').all(eventId) as Invitee[];
   for (const a of pending) {
-    await sendInvitation(a.name, a.email, a.token);
+    await sendInvitation(a.name, a.email, a.token, event.title);
     db.prepare('UPDATE attendees SET is_sent=1 WHERE id=?').run(a.id);
   }
   res.redirect(`/admin/${eventId}`);
