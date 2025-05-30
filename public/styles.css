@@ -73,6 +73,16 @@ input[type="submit"] {
   transition: background-color 0.2s ease-in-out;
 }
 
+a.button {
+
+  padding: 10px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.2s ease-in-out;
+}
+
 button:hover,
 input[type="submit"]:hover {
   background-color: #4cae4c;
@@ -117,6 +127,7 @@ th {
 }
 
 .action-button {
+  color: white;
   background-color: #007bff;
   margin-right: 5px;
   margin-bottom: 5px; /* Add margin for stacked buttons */

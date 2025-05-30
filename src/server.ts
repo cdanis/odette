@@ -177,6 +177,7 @@ function escapeICSText(text: string | null | undefined): string {
   // Escape backslashes first, then other characters
   return text
     .replace(/\\/g, '\\\\')
+    .replace(/\r/g, '')
     .replace(/\n/g, '\\n')
     .replace(/,/g, '\\,')
     .replace(/;/g, '\\;');
@@ -623,6 +624,7 @@ app.get('/ics/:token', async (req, res) => {
             e.date AS event_date, 
             e.description AS event_desc,
             e.location_name AS event_location_name,
+            e.location_href AS event_location_href,
             e.date_end AS event_date_end
      FROM attendees a 
      JOIN events e ON a.event_id=e.id 
@@ -633,6 +635,7 @@ app.get('/ics/:token', async (req, res) => {
     event_date: number; 
     event_desc: string | null; 
     event_location_name: string | null;
+    event_location_href: string | null;
     event_date_end: number | null;
   } | undefined;
 
@@ -647,6 +650,7 @@ app.get('/ics/:token', async (req, res) => {
     event_date, 
     event_desc, 
     event_location_name, 
+    event_location_href,
     event_date_end 
   } = eventDataForICS;
 
@@ -673,6 +677,10 @@ app.get('/ics/:token', async (req, res) => {
 
   icsContent.push(`SUMMARY:${escapeICSText(event_title)}`);
 
+  if (event_location_href) {
+    icsContent.push(`URL:${escapeICSText(event_location_href)}`);
+}
+
   if (event_desc) {
     icsContent.push(`DESCRIPTION:${escapeICSText(event_desc)}`);
   }
@@ -682,6 +690,7 @@ app.get('/ics/:token', async (req, res) => {
   
   icsContent.push('END:VEVENT');
   icsContent.push('END:VCALENDAR');
+  icsContent.push(''); // Ensure there's a final newline for proper ICS formatting
 
   const filenameSafeTitle = (event_title || 'event').replace(/[^a-z0-9_.-]/gi, '_').substring(0, 50);
   
