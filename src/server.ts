@@ -92,14 +92,16 @@ db.prepare(`CREATE TABLE IF NOT EXISTS events (
   banner_image_filename TEXT,
   location_name TEXT,
   location_href TEXT,
-  date_end INTEGER
+  date_end INTEGER,
+  timezone TEXT
 )`).run();
 
 const columnsToAddEvents = [
     { name: 'banner_image_filename', type: 'TEXT' },
     { name: 'location_name', type: 'TEXT' },
     { name: 'location_href', type: 'TEXT' },
-    { name: 'date_end', type: 'INTEGER' }
+    { name: 'date_end', type: 'INTEGER' },
+    { name: 'timezone', type: 'TEXT' }
 ];
 
 columnsToAddEvents.forEach(col => {
@@ -250,17 +252,25 @@ export async function sendInvitation(name: string, email: string, token: string,
 
   // Date formatting
   const startDate = new Date(event.date);
-  // Using toLocaleString for user-friendly date/time. Options ensure clarity.
-  const dateOptions: Intl.DateTimeFormatOptions = { dateStyle: 'full', timeStyle: 'short' };
-  let whenString = startDate.toLocaleString(undefined, dateOptions);
+  const baseDateOptions: Intl.DateTimeFormatOptions = { dateStyle: 'full', timeStyle: 'short' };
+  const effectiveDateOptions: Intl.DateTimeFormatOptions = event.timezone 
+    ? { ...baseDateOptions, timeZone: event.timezone }
+    : baseDateOptions;
+  
+  let whenString = startDate.toLocaleString(undefined, effectiveDateOptions);
 
   if (event.date_end) {
     const endDate = new Date(event.date_end);
-    if (startDate.toDateString() === endDate.toDateString()) { // Same day
-      // Only show time for end date if it's on the same day
-      whenString += ` to ${endDate.toLocaleTimeString(undefined, { timeStyle: 'short' })}`;
-    } else { // Different days
-      whenString += ` to ${endDate.toLocaleString(undefined, dateOptions)}`;
+    const timeOnlyOptions: Intl.DateTimeFormatOptions = event.timezone
+      ? { timeStyle: 'short', timeZone: event.timezone }
+      : { timeStyle: 'short' };
+
+    // Compare dates in the event's timezone (or server default if event.timezone is not set)
+    const tzForComparison = event.timezone || undefined;
+    if (startDate.toLocaleDateString(undefined, {timeZone: tzForComparison}) === endDate.toLocaleDateString(undefined, {timeZone: tzForComparison})) { 
+      whenString += ` to ${endDate.toLocaleTimeString(undefined, timeOnlyOptions)}`;
+    } else { 
+      whenString += ` to ${endDate.toLocaleString(undefined, effectiveDateOptions)}`;
     }
   }
 
@@ -299,7 +309,7 @@ export async function sendInvitation(name: string, email: string, token: string,
   `;
 
   const subject = `Invitation: ${event.title}`;
-  console.log(`Preparing to send invite to ${email} for event "${event.title}"`);
+  console.log(`Preparing to send invite to ${email} for event "${event.title}" (Timezone for email: ${event.timezone || 'Server Default'})`);
 
   if (SMTP_USER && SMTP_PASS) {
     try {
@@ -360,6 +370,7 @@ type EventRecord = {
   location_name?: string | null;
   location_href?: string | null;
   date_end?: number | null;
+  timezone?: string | null;
 };
 type AttendeeView = { 
   id:number; 
@@ -378,6 +389,7 @@ type AttendeeView = {
   event_location_name?: string | null;
   event_location_href?: string | null;
   event_date_end?: number | null;
+  event_timezone?: string | null; 
 };
 type EventAttendeeView = { 
   id:number; 
@@ -434,6 +446,25 @@ function getEventAttendeeStats(eventId: number): AttendeeStats {
 
 type EventRecordWithStats = EventRecord & { stats: AttendeeStats };
 
+// Get IANA timezones
+let timezones: string[] = [];
+try {
+    if (typeof Intl !== 'undefined' && typeof Intl.supportedValuesOf === 'function') {
+        timezones = Intl.supportedValuesOf('timeZone');
+    } else {
+        throw new Error("Intl.supportedValuesOf('timeZone') is not available.");
+    }
+} catch (e) {
+    console.warn("Could not get IANA timezones using Intl.supportedValuesOf('timeZone'). Using a fallback list.", e);
+    timezones = [ // Basic fallback list
+        'UTC', 'Europe/London', 'Europe/Paris', 'Europe/Berlin', 
+        'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
+        'Asia/Tokyo', 'Asia/Dubai', 'Asia/Kolkata', 'Australia/Sydney',
+        // Add more common timezones if needed
+    ];
+}
+
+
 // Landing Page Route
 app.get('/', (req, res) => {
   res.render('landing');
@@ -445,7 +476,7 @@ app.get('/admin', csrfProtection, (req, res) => {
     ...event,
     stats: getEventAttendeeStats(event.id)
   }));
-  res.render('admin', { events, csrfToken: req.csrfToken() });
+  res.render('admin', { events, csrfToken: req.csrfToken(), timezones });
 });
 
 app.get('/admin/:eventId', csrfProtection, (req, res) => {
@@ -461,11 +492,11 @@ app.get('/admin/:eventId', csrfProtection, (req, res) => {
   const allEvents = db.prepare('SELECT id, title FROM events WHERE id != ? ORDER BY title').all(eventId) as {id: number, title: string}[];
   const attendeeStats = getEventAttendeeStats(eventId);
 
-  res.render('event-admin', { event, attendees, allEvents, attendeeStats, csrfToken: req.csrfToken() });
+  res.render('event-admin', { event, attendees, allEvents, attendeeStats, csrfToken: req.csrfToken(), timezones });
 });
 
 app.post('/admin/event', upload.single('banner_image'), csrfProtection, (req, res) => {
-  const { title, date, description, location_name, location_href, date_end } = req.body;
+  const { title, date, description, location_name, location_href, date_end, timezone } = req.body;
   const dateTimestamp = new Date(date).getTime();
   let dateEndTimestamp: number | null = null;
   if (date_end) {
@@ -476,8 +507,8 @@ app.post('/admin/event', upload.single('banner_image'), csrfProtection, (req, re
   }
   
   const result = db.prepare(
-    'INSERT INTO events (title, date, description, banner_image_filename, location_name, location_href, date_end) VALUES (?,?,?,?,?,?,?)'
-    ).run(title, dateTimestamp, description, null, location_name || null, location_href || null, dateEndTimestamp);
+    'INSERT INTO events (title, date, description, banner_image_filename, location_name, location_href, date_end, timezone) VALUES (?,?,?,?,?,?,?,?)'
+    ).run(title, dateTimestamp, description, null, location_name || null, location_href || null, dateEndTimestamp, timezone || null);
   
   const eventId = result.lastInsertRowid;
 
@@ -504,7 +535,7 @@ app.post('/admin/event', upload.single('banner_image'), csrfProtection, (req, re
 
 app.post('/admin/event/:eventId/update', upload.single('banner_image'), csrfProtection, (req, res) => {
   const eventId = +req.params.eventId;
-  const { title, date, description, location_name, location_href, date_end } = req.body;
+  const { title, date, description, location_name, location_href, date_end, timezone } = req.body;
   const dateTimestamp = new Date(date).getTime();
   let dateEndTimestamp: number | null = null;
   if (date_end) {
@@ -529,12 +560,12 @@ app.post('/admin/event/:eventId/update', upload.single('banner_image'), csrfProt
       });
     }
     db.prepare(
-        'UPDATE events SET title = ?, date = ?, description = ?, banner_image_filename = ?, location_name = ?, location_href = ?, date_end = ? WHERE id = ?'
-        ).run(title, dateTimestamp, description, newBannerFilename, location_name || null, location_href || null, dateEndTimestamp, eventId);
+        'UPDATE events SET title = ?, date = ?, description = ?, banner_image_filename = ?, location_name = ?, location_href = ?, date_end = ?, timezone = ? WHERE id = ?'
+        ).run(title, dateTimestamp, description, newBannerFilename, location_name || null, location_href || null, dateEndTimestamp, timezone || null, eventId);
   } else {
     db.prepare(
-        'UPDATE events SET title = ?, date = ?, description = ?, location_name = ?, location_href = ?, date_end = ? WHERE id = ?'
-        ).run(title, dateTimestamp, description, location_name || null, location_href || null, dateEndTimestamp, eventId);
+        'UPDATE events SET title = ?, date = ?, description = ?, location_name = ?, location_href = ?, date_end = ?, timezone = ? WHERE id = ?'
+        ).run(title, dateTimestamp, description, location_name || null, location_href || null, dateEndTimestamp, timezone || null, eventId);
   }
   res.redirect(`/admin/${eventId}`);
 });
@@ -687,7 +718,8 @@ app.get('/rsvp/:tok', csrfProtection, (req, res) => {
                     e.banner_image_filename AS event_banner_image_filename,
                     e.location_name AS event_location_name,
                     e.location_href AS event_location_href,
-                    e.date_end AS event_date_end
+                    e.date_end AS event_date_end,
+                    e.timezone AS event_timezone
              FROM attendees a 
              JOIN events e ON a.event_id=e.id 
              WHERE a.token=?`
@@ -759,6 +791,7 @@ app.get('/ics/:token', async (req, res) => {
             e.location_name AS event_location_name,
             e.location_href AS event_location_href,
             e.date_end AS event_date_end
+            -- e.timezone is not directly used for ICS generation as ICS uses UTC
      FROM attendees a 
      JOIN events e ON a.event_id=e.id 
      WHERE a.token=?`
