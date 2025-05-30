@@ -74,21 +74,33 @@ db.prepare(`CREATE TABLE IF NOT EXISTS events (
   title TEXT NOT NULL,
   date INTEGER NOT NULL,
   description TEXT,
-  banner_image_filename TEXT
+  banner_image_filename TEXT,
+  location_name TEXT,
+  location_href TEXT,
+  date_end INTEGER
 )`).run();
 
-// Attempt to add banner_image_filename column if it doesn't exist (for existing setups)
-try {
-    db.prepare('SELECT banner_image_filename FROM events LIMIT 1').get();
-} catch (error) {
-    console.log('Attempting to add banner_image_filename column to events table...');
+// Attempt to add new columns if they don't exist (for existing setups)
+const columnsToAdd = [
+    { name: 'banner_image_filename', type: 'TEXT' },
+    { name: 'location_name', type: 'TEXT' },
+    { name: 'location_href', type: 'TEXT' },
+    { name: 'date_end', type: 'INTEGER' }
+];
+
+columnsToAdd.forEach(col => {
     try {
-        db.prepare('ALTER TABLE events ADD COLUMN banner_image_filename TEXT').run();
-        console.log('Column banner_image_filename added successfully.');
-    } catch (alterError) {
-        console.error('Failed to add banner_image_filename column:', alterError);
+        db.prepare(`SELECT ${col.name} FROM events LIMIT 1`).get();
+    } catch (error) {
+        console.log(`Attempting to add ${col.name} column to events table...`);
+        try {
+            db.prepare(`ALTER TABLE events ADD COLUMN ${col.name} ${col.type}`).run();
+            console.log(`Column ${col.name} added successfully.`);
+        } catch (alterError) {
+            console.error(`Failed to add ${col.name} column:`, alterError);
+        }
     }
-}
+});
 
 
 db.prepare(`CREATE TABLE IF NOT EXISTS attendees (
@@ -195,9 +207,45 @@ export function upsertAttendee(event_id: number, name: string, email: string, pa
   }
 }
 
-type EventRecord = { id: number; title: string; date: number; description: string | null; banner_image_filename?: string | null; };
-type AttendeeView = { id:number; event_id:number; name:string; email:string; party_size:number; is_sent:number; rsvp:string|null; responded_at:number|null; event_title:string; event_date:number; event_desc:string | null; token: string; event_banner_image_filename?: string | null; };
-type EventAttendeeView = { id:number; event_id:number; name:string; email:string; party_size:number; token: string; is_sent:number; rsvp:string|null; responded_at:number|null; };
+type EventRecord = { 
+  id: number; 
+  title: string; 
+  date: number; 
+  description: string | null; 
+  banner_image_filename?: string | null; 
+  location_name?: string | null;
+  location_href?: string | null;
+  date_end?: number | null;
+};
+type AttendeeView = { 
+  id:number; 
+  event_id:number; 
+  name:string; 
+  email:string; 
+  party_size:number; 
+  is_sent:number; 
+  rsvp:string|null; 
+  responded_at:number|null; 
+  event_title:string; 
+  event_date:number; 
+  event_desc:string | null; 
+  token: string; 
+  event_banner_image_filename?: string | null; 
+  event_location_name?: string | null;
+  event_location_href?: string | null;
+  event_date_end?: number | null;
+};
+type EventAttendeeView = { 
+  id:number; 
+  event_id:number; 
+  name:string; 
+  email:string; 
+  party_size:number; 
+  token: string; 
+  is_sent:number; 
+  rsvp:string|null; 
+  responded_at:number|null; 
+};
 
 interface AttendeeStats {
   potentialGuests: number;
@@ -267,17 +315,24 @@ app.get('/admin/:eventId', csrfProtection, (req, res) => {
 });
 
 app.post('/admin/event', upload.single('banner_image'), csrfProtection, (req, res) => {
-  const { title, date, description } = req.body;
+  const { title, date, description, location_name, location_href, date_end } = req.body;
   const dateTimestamp = new Date(date).getTime();
+  let dateEndTimestamp: number | null = null;
+  if (date_end) {
+    const parsedEnd = new Date(date_end).getTime();
+    if (!isNaN(parsedEnd)) {
+        dateEndTimestamp = parsedEnd;
+    }
+  }
   
-  const result = db.prepare('INSERT INTO events (title,date,description, banner_image_filename) VALUES (?,?,?,?)')
-    .run(title, dateTimestamp, description, null); // Insert null for filename initially
+  const result = db.prepare(
+    'INSERT INTO events (title, date, description, banner_image_filename, location_name, location_href, date_end) VALUES (?,?,?,?,?,?,?)'
+    ).run(title, dateTimestamp, description, null, location_name || null, location_href || null, dateEndTimestamp);
   
   const eventId = result.lastInsertRowid;
 
   if (req.file && eventId) {
-    const tempMulterFilename = req.file.filename; // Filename given by multer (might contain 'temp')
-    // Construct final filename with the actual eventId
+    const tempMulterFilename = req.file.filename; 
     const finalFilename = `event-${eventId}-${Date.now()}${path.extname(req.file.originalname)}`;
     
     const oldPath = path.join(uploadDir, tempMulterFilename);
@@ -286,14 +341,10 @@ app.post('/admin/event', upload.single('banner_image'), csrfProtection, (req, re
     fs.rename(oldPath, newPath, (err) => {
       if (err) {
         console.error("Error renaming uploaded file for new event:", err);
-        // If renaming fails, the temp file might still exist. Consider deleting it.
-        // fs.unlink(oldPath, () => {}); // Attempt to clean up temp file
       } else {
         db.prepare('UPDATE events SET banner_image_filename = ? WHERE id = ?')
           .run(finalFilename, eventId);
       }
-      // Redirect regardless of rename success to avoid hanging the request.
-      // Error is logged server-side.
       res.redirect('/admin');
     });
   } else {
@@ -303,30 +354,39 @@ app.post('/admin/event', upload.single('banner_image'), csrfProtection, (req, re
 
 app.post('/admin/event/:eventId/update', upload.single('banner_image'), csrfProtection, (req, res) => {
   const eventId = +req.params.eventId;
-  const { title, date, description } = req.body;
+  const { title, date, description, location_name, location_href, date_end } = req.body;
   const dateTimestamp = new Date(date).getTime();
+  let dateEndTimestamp: number | null = null;
+  if (date_end) {
+    const parsedEnd = new Date(date_end).getTime();
+    if (!isNaN(parsedEnd)) {
+        dateEndTimestamp = parsedEnd;
+    }
+  }
+
+  let newBannerFilename: string | null = null;
+  const currentEventData = db.prepare('SELECT banner_image_filename FROM events WHERE id = ?').get(eventId) as { banner_image_filename?: string | null };
 
   if (req.file) {
-    const newBannerFilename = req.file.filename; // Multer already used eventId in filename here
-    
-    // Fetch old banner filename to delete it
-    const oldEventData = db.prepare('SELECT banner_image_filename FROM events WHERE id = ?').get(eventId) as { banner_image_filename?: string | null };
-    if (oldEventData && oldEventData.banner_image_filename) {
-      const oldBannerPath = path.join(uploadDir, oldEventData.banner_image_filename);
+    newBannerFilename = req.file.filename; 
+    if (currentEventData && currentEventData.banner_image_filename) {
+      const oldBannerPath = path.join(uploadDir, currentEventData.banner_image_filename);
       fs.unlink(oldBannerPath, (err) => {
-        if (err && err.code !== 'ENOENT') { // ENOENT (Error NO ENTity) means file not found, which is fine
+        if (err && err.code !== 'ENOENT') { 
              console.error(`Failed to delete old banner image ${oldBannerPath}:`, err);
         } else if (!err) {
             console.log(`Deleted old banner image ${oldBannerPath}`);
         }
       });
     }
-    db.prepare('UPDATE events SET title = ?, date = ?, description = ?, banner_image_filename = ? WHERE id = ?')
-      .run(title, dateTimestamp, description, newBannerFilename, eventId);
+    db.prepare(
+        'UPDATE events SET title = ?, date = ?, description = ?, banner_image_filename = ?, location_name = ?, location_href = ?, date_end = ? WHERE id = ?'
+        ).run(title, dateTimestamp, description, newBannerFilename, location_name || null, location_href || null, dateEndTimestamp, eventId);
   } else {
-    // No new file uploaded, just update other fields
-    db.prepare('UPDATE events SET title = ?, date = ?, description = ? WHERE id = ?')
-      .run(title, dateTimestamp, description, eventId);
+    // No new file uploaded, just update other fields, keep existing banner
+    db.prepare(
+        'UPDATE events SET title = ?, date = ?, description = ?, location_name = ?, location_href = ?, date_end = ? WHERE id = ?'
+        ).run(title, dateTimestamp, description, location_name || null, location_href || null, dateEndTimestamp, eventId);
   }
   res.redirect(`/admin/${eventId}`);
 });
@@ -474,7 +534,10 @@ app.get('/rsvp/:tok', csrfProtection, (req, res) => {
                     e.title AS event_title, 
                     e.date as event_date, 
                     e.description as event_desc,
-                    e.banner_image_filename AS event_banner_image_filename 
+                    e.banner_image_filename AS event_banner_image_filename,
+                    e.location_name AS event_location_name,
+                    e.location_href AS event_location_href,
+                    e.date_end AS event_date_end
              FROM attendees a 
              JOIN events e ON a.event_id=e.id 
              WHERE a.token=?`
@@ -508,7 +571,7 @@ app.post('/rsvp/:token', csrfProtection, async (req, res) => {
         return;
     }
 
-    let finalPartySize = attendeeData.original_party_size; // Default to original party size
+    let finalPartySize = attendeeData.original_party_size; 
 
     if (rsvp === 'yes') {
         const parsedPartySize = parseInt(partySizeStr, 10);
@@ -518,8 +581,6 @@ app.post('/rsvp/:token', csrfProtection, async (req, res) => {
         }
         finalPartySize = parsedPartySize;
     }
-    // If rsvp is 'no', finalPartySize remains the original_party_size for DB storage,
-    // but for notification, we'll send 0.
 
     db.prepare('UPDATE attendees SET rsvp=?, party_size=?, responded_at=? WHERE token=?')
         .run(rsvp, finalPartySize, now, req.params.token);
@@ -529,50 +590,38 @@ app.post('/rsvp/:token', csrfProtection, async (req, res) => {
     res.render('thanks', { rsvp, party_size: (rsvp === 'yes' ? finalPartySize : 0) });
 });
 
-// Error handling for Multer (e.g., file too large, wrong type)
-// This should come BEFORE the general CSRF error handler if Multer errors should be handled distinctly.
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err instanceof multer.MulterError) {
-    console.error('Multer Error:', err.message); // Log only message for brevity
-    // Try to redirect back to the form page with an error query parameter
+    console.error('Multer Error:', err.message); 
     const redirectUrl = req.headers.referer || (req.body.event_id ? `/admin/${req.body.event_id}` : (req.params.eventId ? `/admin/${req.params.eventId}` : '/admin'));
     return res.redirect(`${redirectUrl}?error=${encodeURIComponent(err.message)}`);
   } else if (err && (err.message.includes('Invalid file type') || err.message.includes('File too large'))) { 
-    // This catches errors thrown by our custom fileFilter or Multer's limits
     console.error('File Upload Error:', err.message);
     const redirectUrl = req.headers.referer || (req.body.event_id ? `/admin/${req.body.event_id}` : (req.params.eventId ? `/admin/${req.params.eventId}` : '/admin'));
     return res.redirect(`${redirectUrl}?error=${encodeURIComponent(err.message)}`);
   }
-  next(err); // Pass on to other error handlers if not a Multer-related error we handle here
+  next(err); 
 });
 
 
-// CSRF Error Handler
-// This must be defined after all routes that use CSRF protection.
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err.code === 'EBADCSRFTOKEN') {
     console.error('CSRF Token Error:', err);
     let userMessage = 'Form tampered with or session expired. Please refresh the page and try again.';
-    let backLink = req.headers.referer || '/admin'; // Default back link
+    let backLink = req.headers.referer || '/admin'; 
 
     if (req.originalUrl.startsWith('/admin')) {
         userMessage = 'Admin form submission error (CSRF): Form tampered with or session expired. Please refresh and try again.';
-        backLink = req.originalUrl.split('?')[0]; // Link back to the specific admin page if possible
-         if (!req.originalUrl.includes('/admin/event/')) { // Avoid linking to POST URLs
+        backLink = req.originalUrl.split('?')[0]; 
+         if (!req.originalUrl.includes('/admin/event/')) { 
             backLink = '/admin';
          }
     } else if (req.originalUrl.startsWith('/rsvp')) {
         userMessage = 'RSVP submission error (CSRF): Form submission issue or session expired. Please try using your unique link again. If the problem persists, contact the event organizer.';
-        // For RSVP, redirecting back might not be useful if the token is truly invalid.
-        // A generic error page or message is often better.
-        // We could try to get the token from the URL if it's a GET, but it's a POST error.
-        backLink = '/'; // Or a generic error page
+        backLink = '/'; 
     }
-    // It's often better to render an error page than just send text
-    // For simplicity, sending text with a link.
     res.status(403).send(`${userMessage} <a href="${backLink}">Go back</a>`);
   } else {
-    // If it's not a CSRF error, pass it to the default Express error handler or other custom error handlers.
     next(err); 
   }
 });

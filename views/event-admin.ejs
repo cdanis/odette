@@ -18,11 +18,12 @@
 <body>
   <%
     const formatDateToDateTimeLocalString = (dateInput) => {
-      const date = new Date(dateInput); // Ensure it's a Date object
-      if (!date || isNaN(date.getTime())) return ''; // Handle invalid or null dates
+      if (!dateInput) return ''; // Handles null, undefined, or empty string for optional dates
+      const date = new Date(dateInput); 
+      if (isNaN(date.getTime())) return ''; // Handle invalid dates
       
       const year = date.getFullYear();
-      const month = (date.getMonth() + 1).toString().padStart(2, '0'); // getMonth is 0-indexed
+      const month = (date.getMonth() + 1).toString().padStart(2, '0'); 
       const day = date.getDate().toString().padStart(2, '0');
       const hours = date.getHours().toString().padStart(2, '0');
       const minutes = date.getMinutes().toString().padStart(2, '0');
@@ -47,8 +48,20 @@
           <input type="text" id="title" name="title" value="<%= event.title %>" required />
         </div>
         <div>
-          <label for="date">Event Date & Time:</label>
+          <label for="date">Start Date & Time:</label>
           <input type="datetime-local" id="date" name="date" value="<%= formatDateToDateTimeLocalString(event.date) %>" required />
+        </div>
+        <div>
+          <label for="date_end">End Date & Time (Optional):</label>
+          <input type="datetime-local" id="date_end" name="date_end" value="<%= formatDateToDateTimeLocalString(event.date_end) %>" />
+        </div>
+        <div>
+          <label for="location_name">Location Name (Optional):</label>
+          <input type="text" id="location_name" name="location_name" value="<%= event.location_name || '' %>" />
+        </div>
+        <div>
+          <label for="location_href">Location URL (Optional):</label>
+          <input type="url" id="location_href" name="location_href" value="<%= event.location_href || '' %>" placeholder="https://maps.example.com/..." />
         </div>
         <div>
           <label for="description">Description:</label>
@@ -70,10 +83,24 @@
     </div>
     <hr style="margin: 20px 0;">
 
-    <p class="date">Current Event Date & Time: <%= new Date(event.date).toLocaleString() %></p>
+    <p class="date">Current Start Date & Time: <%= new Date(event.date).toLocaleString() %></p>
+    <% if (event.date_end) { %>
+      <p class="date">Current End Date & Time: <%= new Date(event.date_end).toLocaleString() %></p>
+    <% } %>
+    <% if (event.location_name || event.location_href) { %>
+      <p class="location">
+        Current Location: 
+        <% if (event.location_href) { %>
+          <a href="<%= event.location_href %>" target="_blank"><%= event.location_name || 'View Map' %></a>
+        <% } else { %>
+          <%= event.location_name %>
+        <% } %>
+      </p>
+    <% } %>
     <% if (event.description) { %>
       <p class="description">Current Description: <%= event.description %></p>
     <% } %>
+
 
     <!-- RSVP Summary Section -->
     <% if (typeof attendeeStats !== 'undefined') { %>
@@ -155,7 +182,7 @@
       <!-- END NEW FORM SECTION -->
 
       <% if (allEvents.length > 0) { %>
-      <div class="form-section" style="margin-top: 20px;"> <!-- Added margin-top for spacing if previous section is also a form-section or similar block -->
+      <div class="form-section" style="margin-top: 20px;"> 
         <h3>Copy Attendees to This Event (<%= event.title %>)</h3>
         <form action="/admin/attendees/copy" method="POST">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -211,7 +238,7 @@
                 </td>
                 <% 
                   let rsvpStatusText = 'Pending';
-                  let rsvpSortOrder = 1; // Default for Pending
+                  let rsvpSortOrder = 1; 
                   if (attendee.rsvp === 'yes') {
                     rsvpStatusText = 'YES';
                     rsvpSortOrder = 2;
@@ -256,21 +283,16 @@
   <script>
     $(document).ready(function() {
       $('#attendeesTable').DataTable({
-        // Example: Disable sorting on the 'Actions' column (index 6)
-        // "columnDefs": [
-        //   { "orderable": false, "targets": 6 } 
-        // ]
       });
-       // Check for error query parameter and display it
       const urlParams = new URLSearchParams(window.location.search);
       const error = urlParams.get('error');
-      if (error && !document.querySelector('.form-section p[style="color: red;"]')) { // Avoid duplicate error messages if already rendered server-side
+      if (error && !document.querySelector('.form-section p[style="color: red;"]')) { 
           const errorP = document.createElement('p');
           errorP.style.color = 'red';
           errorP.textContent = decodeURIComponent(error);
-          const formSection = document.querySelector('.form-section h2'); // Insert after h2
-          if (formSection && formSection.parentNode) {
-            formSection.parentNode.insertBefore(errorP, formSection.nextSibling);
+          const formSectionH2 = document.querySelector('.form-section h2'); 
+          if (formSectionH2 && formSectionH2.parentNode) {
+            formSectionH2.parentNode.insertBefore(errorP, formSectionH2.nextSibling);
           }
       }
     });
