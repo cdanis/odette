@@ -1,0 +1,51 @@
+# Git files
+.git
+.gitignore
+
+# Node modules (these will be installed within the Docker image)
+node_modules
+
+# Local build artifacts (these will be built within the Docker image)
+dist
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker specific files
+Dockerfile
+.dockerignore
+
+# Documentation / Readme files (unless needed in image)
+*.md
+README
+LICENSE
+
+# Environment files (should be passed as environment variables to the container)
+.env*
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Aider specific files
+.aider*
+
+# Local SQLite database files (these should be mounted as volumes)
+*.sqlite
+*.sqlite-journal
+*.db
+
+# Test files and configurations
+tests/
+test/
+coverage/
+jest.config.js
+*.test.ts
+*.spec.ts
+*.test.js
+*.spec.js
+
+# TypeScript configuration files if not needed in final image (tsconfig.json is copied to builder)
+# tsconfig.build.json (if you have one)
