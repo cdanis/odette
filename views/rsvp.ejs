@@ -26,7 +26,7 @@
     <div class="container">
         <div class="card">  <%# todo: separate to a sub-'component' template %>
             <% if (attendee.event_banner_image_filename) { %>
-                <img src="/static/uploads/event-banners/<%= attendee.event_banner_image_filename %>" alt="<%= attendee.event_title %> Banner" class="event-banner">
+                <img src="/uploads/event-banners/<%= attendee.event_banner_image_filename %>" alt="<%= attendee.event_title %> Banner" class="event-banner">
             <% } %>
             <div class="card-header">
                 <h1 class="card-header-title">

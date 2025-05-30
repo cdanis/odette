@@ -31,7 +31,9 @@ import fs from 'fs'; // For file system operations (e.g., deleting old banners, 
 
 export const PORT = process.env.PORT ?? '3000';
 export const APP_BASE_URL = process.env.APP_BASE_URL ?? `http://localhost:${PORT}`;
-const DB_PATH = process.env.DB_PATH ?? './rsvp.sqlite';
+const DB_PATH = process.env.DB_PATH ?? './rsvp.sqlite'; // Default for local, overridden by Docker ENV
+const EVENT_BANNER_STORAGE_PATH = process.env.EVENT_BANNER_STORAGE_PATH || '/data/uploads/event-banners'; // For uploaded banners
+
 const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
 const NTFY_TOPIC = process.env.NTFY_TOPIC;
@@ -45,27 +47,37 @@ const SESSION_SECRET = process.env.SESSION_SECRET || 'your-super-secret-and-long
 export const app = express();
 app.set('view engine', 'ejs');
 // Assuming 'views' directory is at the project root, sibling to 'src' and 'dist'
+// When running compiled code from dist/, __dirname is dist/src, so ../views is <project_root>/views
 app.set('views', path.join(__dirname, '../views'));
 app.use(bodyParser.urlencoded({ extended: true })); // For form data
-// app.use(bodyParser.json()); // If you need to parse JSON bodies
 
-// Assuming 'public' directory is copied to 'dist/public' during build
-// This will serve files from 'dist/public' under '/static' URL path
+// Static serving for bundled public assets (CSS, etc.)
+// Resolves to <project_root>/dist/public when running compiled code
 app.use('/static', express.static(path.join(__dirname, '../public')));
+
+// Static serving for uploaded event banners from the configured storage path
+// EVENT_BANNER_STORAGE_PATH is an absolute path like /data/uploads/event-banners
+console.log(`Serving event banners from: ${EVENT_BANNER_STORAGE_PATH}`);
+app.use('/uploads/event-banners', express.static(EVENT_BANNER_STORAGE_PATH));
+// Ensure the directory for banner uploads exists
+try {
+    fs.mkdirSync(EVENT_BANNER_STORAGE_PATH, { recursive: true });
+    console.log(`Upload directory ${EVENT_BANNER_STORAGE_PATH} is ready.`);
+} catch (err) {
+    console.error(`Error creating upload directory ${EVENT_BANNER_STORAGE_PATH}:`, err);
+}
 
 
 // Session middleware
 app.use(session({
   secret: SESSION_SECRET,
   resave: false,
-  saveUninitialized: false, // Set to true if you want to store session for all users, false for GDPR compliance until login/consent
-  // cookie: { secure: process.env.NODE_ENV === 'production' } // Use secure cookies in production (requires HTTPS)
+  saveUninitialized: false, 
+  // cookie: { secure: process.env.NODE_ENV === 'production' } 
 }));
 
 // CSRF protection middleware instance
 const csrfProtection = csurf();
-// IMPORTANT: CSRF protection will be applied on a per-route basis.
-// Multer (for file uploads) must run BEFORE csrfProtection on routes that handle multipart/form-data.
 
 
 export const db = new Database.default(DB_PATH);
@@ -80,7 +92,6 @@ db.prepare(`CREATE TABLE IF NOT EXISTS events (
   date_end INTEGER
 )`).run();
 
-// Attempt to add new columns if they don't exist (for existing setups)
 const columnsToAdd = [
     { name: 'banner_image_filename', type: 'TEXT' },
     { name: 'location_name', type: 'TEXT' },
@@ -92,6 +103,7 @@ columnsToAdd.forEach(col => {
     try {
         db.prepare(`SELECT ${col.name} FROM events LIMIT 1`).get();
     } catch (error) {
+        // Column likely doesn't exist, try to add it
         console.log(`Attempting to add ${col.name} column to events table...`);
         try {
             db.prepare(`ALTER TABLE events ADD COLUMN ${col.name} ${col.type}`).run();
@@ -114,7 +126,7 @@ db.prepare(`CREATE TABLE IF NOT EXISTS attendees (
   rsvp TEXT DEFAULT NULL,
   responded_at INTEGER DEFAULT NULL,
   FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
-)`).run(); // Added ON DELETE CASCADE for attendees when event is deleted
+)`).run(); 
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -122,17 +134,11 @@ const transporter = nodemailer.createTransport({
 });
 
 // Multer setup for file uploads
-const uploadDir = path.join(__dirname, '../public/uploads/event-banners');
-// Ensure upload directory exists
-fs.mkdirSync(uploadDir, { recursive: true });
-
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, uploadDir);
+    cb(null, EVENT_BANNER_STORAGE_PATH); // Use the absolute path from environment or default
   },
   filename: function (req, file, cb) {
-    // Filename: event-<eventId>-<timestamp>.<ext>
-    // If eventId is not yet available (e.g. new event), use a temporary name part
     const eventIdPart = req.params.eventId || 'temp'; 
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, `event-${eventIdPart}-${uniqueSuffix}${path.extname(file.originalname)}`);
@@ -143,7 +149,6 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
   if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' || file.mimetype === 'image/gif') {
     cb(null, true);
   } else {
-    // Important: Pass an error to cb to reject the file
     cb(new Error('Invalid file type. Only JPEG, PNG, and GIF are allowed.'));
   }
 };
@@ -151,7 +156,7 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
 const upload = multer({ 
     storage: storage, 
     fileFilter: fileFilter, 
-    limits: { fileSize: 5 * 1024 * 1024 } // Limit file size to 5MB
+    limits: { fileSize: 5 * 1024 * 1024 } 
 });
 
 
@@ -194,7 +199,6 @@ export function upsertAttendee(event_id: number, name: string, email: string, pa
   if (existing) {
     const rsvpStatus = db.prepare('SELECT rsvp FROM attendees WHERE id = ?').get(existing.id) as { rsvp: string | null } | undefined;
     if (rsvpStatus && rsvpStatus.rsvp === null) {
-        // Only update party_size if a party_size was explicitly provided and it's different
         if (party_size !== undefined && existing.party_size !== finalPartySize) {
             db.prepare('UPDATE attendees SET party_size=? WHERE id=?')
               .run(finalPartySize, existing.id);
@@ -335,8 +339,8 @@ app.post('/admin/event', upload.single('banner_image'), csrfProtection, (req, re
     const tempMulterFilename = req.file.filename; 
     const finalFilename = `event-${eventId}-${Date.now()}${path.extname(req.file.originalname)}`;
     
-    const oldPath = path.join(uploadDir, tempMulterFilename);
-    const newPath = path.join(uploadDir, finalFilename);
+    const oldPath = path.join(EVENT_BANNER_STORAGE_PATH, tempMulterFilename);
+    const newPath = path.join(EVENT_BANNER_STORAGE_PATH, finalFilename);
 
     fs.rename(oldPath, newPath, (err) => {
       if (err) {
@@ -364,13 +368,12 @@ app.post('/admin/event/:eventId/update', upload.single('banner_image'), csrfProt
     }
   }
 
-  let newBannerFilename: string | null = null;
   const currentEventData = db.prepare('SELECT banner_image_filename FROM events WHERE id = ?').get(eventId) as { banner_image_filename?: string | null };
 
   if (req.file) {
-    newBannerFilename = req.file.filename; 
+    const newBannerFilename = req.file.filename; 
     if (currentEventData && currentEventData.banner_image_filename) {
-      const oldBannerPath = path.join(uploadDir, currentEventData.banner_image_filename);
+      const oldBannerPath = path.join(EVENT_BANNER_STORAGE_PATH, currentEventData.banner_image_filename);
       fs.unlink(oldBannerPath, (err) => {
         if (err && err.code !== 'ENOENT') { 
              console.error(`Failed to delete old banner image ${oldBannerPath}:`, err);
@@ -383,7 +386,6 @@ app.post('/admin/event/:eventId/update', upload.single('banner_image'), csrfProt
         'UPDATE events SET title = ?, date = ?, description = ?, banner_image_filename = ?, location_name = ?, location_href = ?, date_end = ? WHERE id = ?'
         ).run(title, dateTimestamp, description, newBannerFilename, location_name || null, location_href || null, dateEndTimestamp, eventId);
   } else {
-    // No new file uploaded, just update other fields, keep existing banner
     db.prepare(
         'UPDATE events SET title = ?, date = ?, description = ?, location_name = ?, location_href = ?, date_end = ? WHERE id = ?'
         ).run(title, dateTimestamp, description, location_name || null, location_href || null, dateEndTimestamp, eventId);
@@ -519,7 +521,7 @@ app.post('/admin/attendee/:attendeeId/update-party-size', csrfProtection, (req, 
 });
 
 
-app.get('/user/:id', (req, res) => { // No form, no CSRF needed
+app.get('/user/:id', (req, res) => { 
     res.send(`user ${req.params.id}`)
   });
 

@@ -71,7 +71,7 @@
           <label for="banner_image">Event Banner Image (Optional):</label>
           <% if (event.banner_image_filename) { %>
             <p>Current Banner:</p>
-            <img src="/static/uploads/event-banners/<%= event.banner_image_filename %>" alt="Current Event Banner" class="current-banner-image">
+            <img src="/uploads/event-banners/<%= event.banner_image_filename %>" alt="Current Event Banner" class="current-banner-image">
             <p><small>Uploading a new image will replace the current one.</small></p>
           <% } else { %>
             <p><small>No banner image uploaded yet.</small></p>

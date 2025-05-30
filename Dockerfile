@@ -44,6 +44,7 @@ COPY --from=builder /usr/src/app/package.json ./package.json
 
 # Create a directory for persistent data (like SQLite database) and set ownership
 # The actual database file should be mounted as a volume to /data/rsvp.sqlite
+# The banner images will be stored in a subdirectory of /data as well.
 RUN mkdir /data
 
 # Switch to the non-root user
@@ -53,8 +54,9 @@ RUN mkdir /data
 # Your app uses process.env.PORT || '3000'
 EXPOSE 3000
 
-# Set a default path for the database, can be overridden by DB_PATH env var at runtime
+# Set default paths, can be overridden by environment variables at runtime
 ENV DB_PATH /data/rsvp.sqlite
+ENV EVENT_BANNER_STORAGE_PATH /data/uploads/event-banners
 
 # Command to run the application (updated to dist/main.js)
 CMD ["node", "dist/main.js"]
