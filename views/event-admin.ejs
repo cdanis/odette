@@ -210,6 +210,7 @@
               <th>Invite Sent?</th>
               <th>RSVP Status</th>
               <th>Responded At</th>
+              <th>Last Modified</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -248,9 +249,16 @@
                   }
                 %>
                 <td data-order="<%= rsvpSortOrder %>"><%= rsvpStatusText %></td>
-                <td>
+                <td data-order="<%= attendee.responded_at || 0 %>">
                   <% if (attendee.responded_at) { %>
                     <%= new Date(attendee.responded_at).toLocaleString() %>
+                  <% } else { %>
+                    N/A
+                  <% } %>
+                </td>
+                <td data-order="<%= attendee.last_modified || 0 %>">
+                  <% if (attendee.last_modified) { %>
+                    <%= new Date(attendee.last_modified).toLocaleString() %>
                   <% } else { %>
                     N/A
                   <% } %>
@@ -283,6 +291,7 @@
   <script>
     $(document).ready(function() {
       $('#attendeesTable').DataTable({
+        "order": [[ 6, "desc" ]] // Default sort by "Last Modified" descending
       });
       const urlParams = new URLSearchParams(window.location.search);
       const error = urlParams.get('error');

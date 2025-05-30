@@ -95,14 +95,14 @@ db.prepare(`CREATE TABLE IF NOT EXISTS events (
   date_end INTEGER
 )`).run();
 
-const columnsToAdd = [
+const columnsToAddEvents = [
     { name: 'banner_image_filename', type: 'TEXT' },
     { name: 'location_name', type: 'TEXT' },
     { name: 'location_href', type: 'TEXT' },
     { name: 'date_end', type: 'INTEGER' }
 ];
 
-columnsToAdd.forEach(col => {
+columnsToAddEvents.forEach(col => {
     try {
         db.prepare(`SELECT ${col.name} FROM events LIMIT 1`).get();
     } catch (error) {
@@ -128,8 +128,23 @@ db.prepare(`CREATE TABLE IF NOT EXISTS attendees (
   is_sent INTEGER NOT NULL DEFAULT 0,
   rsvp TEXT DEFAULT NULL,
   responded_at INTEGER DEFAULT NULL,
+  last_modified INTEGER,
   FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
 )`).run(); 
+
+// Check and add last_modified to attendees table
+try {
+    db.prepare(`SELECT last_modified FROM attendees LIMIT 1`).get();
+} catch (error) {
+    console.log(`Attempting to add last_modified column to attendees table...`);
+    try {
+        db.prepare(`ALTER TABLE attendees ADD COLUMN last_modified INTEGER`).run();
+        console.log(`Column last_modified added successfully to attendees table.`);
+    } catch (alterError) {
+        console.error(`Failed to add last_modified column to attendees:`, alterError);
+    }
+}
+
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -239,19 +254,20 @@ export function upsertAttendee(event_id: number, name: string, email: string, pa
   const stmtSelect = db.prepare('SELECT id, party_size FROM attendees WHERE event_id=? AND email=?');
   const existing = stmtSelect.get(event_id, email) as ExistingAttendee | undefined;
   const finalPartySize = party_size === undefined || isNaN(party_size) || party_size < 1 ? 1 : party_size;
+  const now = Date.now();
 
   if (existing) {
     const rsvpStatus = db.prepare('SELECT rsvp FROM attendees WHERE id = ?').get(existing.id) as { rsvp: string | null } | undefined;
-    if (rsvpStatus && rsvpStatus.rsvp === null) {
+    if (rsvpStatus && rsvpStatus.rsvp === null) { // Only update party size if no RSVP yet
         if (party_size !== undefined && existing.party_size !== finalPartySize) {
-            db.prepare('UPDATE attendees SET party_size=? WHERE id=?')
-              .run(finalPartySize, existing.id);
+            db.prepare('UPDATE attendees SET party_size=?, last_modified=? WHERE id=?')
+              .run(finalPartySize, now, existing.id);
         }
     }
   } else {
     const token = generateToken();
-    db.prepare('INSERT INTO attendees (event_id,name,email,party_size,token) VALUES (?,?,?,?,?)')
-      .run(event_id, name, email, finalPartySize, token);
+    db.prepare('INSERT INTO attendees (event_id,name,email,party_size,token,last_modified) VALUES (?,?,?,?,?,?)')
+      .run(event_id, name, email, finalPartySize, token, now);
   }
 }
 
@@ -293,6 +309,7 @@ type EventAttendeeView = {
   is_sent:number; 
   rsvp:string|null; 
   responded_at:number|null; 
+  last_modified: number | null;
 };
 
 interface AttendeeStats {
@@ -354,7 +371,7 @@ app.get('/admin/:eventId', csrfProtection, (req, res) => {
     return;
   }
   const attendees = db.prepare(
-    'SELECT id, event_id, name, email, party_size, token, is_sent, rsvp, responded_at FROM attendees WHERE event_id = ? ORDER BY name'
+    'SELECT id, event_id, name, email, party_size, token, is_sent, rsvp, responded_at, last_modified FROM attendees WHERE event_id = ? ORDER BY name'
   ).all(eventId) as EventAttendeeView[];
   const allEvents = db.prepare('SELECT id, title FROM events WHERE id != ? ORDER BY title').all(eventId) as {id: number, title: string}[];
   const attendeeStats = getEventAttendeeStats(eventId);
@@ -502,7 +519,7 @@ app.post('/admin/attendees/send/:attendeeId', csrfProtection, async (req, res) =
         return;
     }
     await sendInvitation(a.name, a.email, a.token, event.title);
-    db.prepare('UPDATE attendees SET is_sent=1 WHERE id=?').run(attendeeId);
+    db.prepare('UPDATE attendees SET is_sent=1, last_modified=? WHERE id=?').run(Date.now(), attendeeId);
     res.redirect(`/admin/${a.event_id}`);
   } else {
     res.status(404).send('Attendee not found');
@@ -512,6 +529,7 @@ app.post('/admin/attendees/send/:attendeeId', csrfProtection, async (req, res) =
 app.post('/admin/events/:eventId/send-invites', csrfProtection, async (req, res) => {
   const eventId = +req.params.eventId;
   const event = db.prepare('SELECT title FROM events WHERE id = ?').get(eventId) as { title: string } | undefined;
+  const now = Date.now();
 
   if (!event) {
     console.error(`Event not found with ID ${eventId} when trying to send batch invites.`);
@@ -522,7 +540,7 @@ app.post('/admin/events/:eventId/send-invites', csrfProtection, async (req, res)
   const pending = db.prepare('SELECT id,name,email,token FROM attendees WHERE event_id=? AND is_sent=0').all(eventId) as Invitee[];
   for (const a of pending) {
     await sendInvitation(a.name, a.email, a.token, event.title);
-    db.prepare('UPDATE attendees SET is_sent=1 WHERE id=?').run(a.id);
+    db.prepare('UPDATE attendees SET is_sent=1, last_modified=? WHERE id=?').run(now, a.id);
   }
   res.redirect(`/admin/${eventId}`);
 });
@@ -530,6 +548,7 @@ app.post('/admin/events/:eventId/send-invites', csrfProtection, async (req, res)
 app.post('/admin/attendee/:attendeeId/update-party-size', csrfProtection, (req, res) => {
   const attendeeId = +req.params.attendeeId;
   const newPartySize = parseInt(req.body.party_size, 10);
+  const now = Date.now();
 
   const attendeeInfo = db.prepare('SELECT event_id, rsvp FROM attendees WHERE id = ?')
                          .get(attendeeId) as { event_id: number; rsvp: string | null } | undefined;
@@ -552,8 +571,8 @@ app.post('/admin/attendee/:attendeeId/update-party-size', csrfProtection, (req, 
     return ;
   }
 
-  const result = db.prepare('UPDATE attendees SET party_size = ? WHERE id = ? AND rsvp IS NULL')
-                   .run(newPartySize, attendeeId);
+  const result = db.prepare('UPDATE attendees SET party_size = ?, last_modified = ? WHERE id = ? AND rsvp IS NULL')
+                   .run(newPartySize, now, attendeeId);
 
   if (result.changes === 0 && attendeeInfo.rsvp === null) {
     console.warn(`Party size update for attendee ${attendeeId} (who had no RSVP) did not result in changes. Current DB rsvp: ${attendeeInfo.rsvp}. Submitted party size: ${newPartySize}.`);
@@ -628,8 +647,8 @@ app.post('/rsvp/:token', csrfProtection, async (req, res) => {
         finalPartySize = parsedPartySize;
     }
 
-    db.prepare('UPDATE attendees SET rsvp=?, party_size=?, responded_at=? WHERE token=?')
-        .run(rsvp, finalPartySize, now, req.params.token);
+    db.prepare('UPDATE attendees SET rsvp=?, party_size=?, responded_at=?, last_modified=? WHERE token=?')
+        .run(rsvp, finalPartySize, now, now, req.params.token);
     
     await notifyAdmin(attendeeData, rsvp, (rsvp === 'yes' ? finalPartySize : 0));
     
