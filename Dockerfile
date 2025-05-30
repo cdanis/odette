@@ -24,7 +24,7 @@ FROM node:22-slim
 WORKDIR /usr/src/app
 
 # Set Node environment to production
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
 # Create a non-root user and group for security
 #RUN addgroup -S appgroup && adduser -S appuser -G appgroup
@@ -55,8 +55,8 @@ RUN mkdir /data
 EXPOSE 3000
 
 # Set default paths, can be overridden by environment variables at runtime
-ENV DB_PATH /data/rsvp.sqlite
-ENV EVENT_BANNER_STORAGE_PATH /data/uploads/event-banners
+ENV DB_PATH=/data/rsvp.sqlite
+ENV EVENT_BANNER_STORAGE_PATH=/data/uploads/event-banners
 
 # Command to run the application (updated to dist/main.js)
 CMD ["node", "dist/main.js"]

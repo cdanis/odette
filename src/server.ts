@@ -32,7 +32,7 @@ import fs from 'fs'; // For file system operations (e.g., deleting old banners, 
 export const PORT = process.env.PORT ?? '3000';
 export const APP_BASE_URL = process.env.APP_BASE_URL ?? `http://localhost:${PORT}`;
 const DB_PATH = process.env.DB_PATH ?? './rsvp.sqlite'; // Default for local, overridden by Docker ENV
-const EVENT_BANNER_STORAGE_PATH = process.env.EVENT_BANNER_STORAGE_PATH || '/data/uploads/event-banners'; // For uploaded banners
+const EVENT_BANNER_STORAGE_PATH = process.env.EVENT_BANNER_STORAGE_PATH || './data/uploads/event-banners'; // For uploaded banners
 
 const SMTP_USER = process.env.SMTP_USER;
 const SMTP_PASS = process.env.SMTP_PASS;
