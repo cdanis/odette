@@ -172,15 +172,37 @@ function formatICSDate(timestamp: number): string {
 }
 
 // Helper function to escape text for ICS content
-function escapeICSText(text: string | null | undefined): string {
-  if (!text) return '';
-  // Escape backslashes first, then other characters
-  return text
-    .replace(/\\/g, '\\\\')
-    .replace(/\r/g, '')
-    .replace(/\n/g, '\\n')
-    .replace(/,/g, '\\,')
-    .replace(/;/g, '\\;');
+// and optionally convert HTML to plain text
+function escapeICSText(text: string | null | undefined, isHtmlContent: boolean = false): string {
+  if (text === null || typeof text === 'undefined') return '';
+
+  let processedText = String(text); // Ensure it's a string
+
+  if (isHtmlContent) {
+    // 1. Convert <br> tags to newlines
+    processedText = processedText.replace(/<br\s*\/?>/gi, '\n');
+    // 2. Strip all other HTML tags
+    processedText = processedText.replace(/<[^>]+>/g, '');
+    // 3. Decode common HTML entities
+    // Order is important: &amp; first
+    processedText = processedText.replace(/&amp;/g, '&')
+                                 .replace(/&lt;/g, '<')
+                                 .replace(/&gt;/g, '>')
+                                 .replace(/&quot;/g, '"')
+                                 .replace(/&#039;/g, "'") // Numeric entity for single quote
+                                 .replace(/&apos;/g, "'") // Named entity for single quote
+                                 .replace(/&nbsp;/g, ' '); // Non-breaking space to space
+    // 4. Trim whitespace that might be left around after stripping tags
+    processedText = processedText.trim();
+  }
+
+  // Escape characters for ICS format
+  return processedText
+    .replace(/\\/g, '\\\\') // Must be first: escape backslashes
+    .replace(/\r/g, '')     // Remove carriage returns
+    .replace(/\n/g, '\\n')  // Escape newlines (convert LF to literal \n)
+    .replace(/,/g, '\\,')   // Escape commas
+    .replace(/;/g, '\\;');  // Escape semicolons
 }
 
 export async function sendInvitation(name: string, email: string, token: string, eventTitle: string) {
@@ -675,17 +697,19 @@ app.get('/ics/:token', async (req, res) => {
     icsContent.push(`DTEND:${formatICSDate(event_date_end)}`);
   }
 
-  icsContent.push(`SUMMARY:${escapeICSText(event_title)}`);
+  icsContent.push(`SUMMARY:${escapeICSText(event_title)}`); // isHtmlContent defaults to false
 
   if (event_location_href) {
-    icsContent.push(`URL:${escapeICSText(event_location_href)}`);
-}
+    // URL property in VEVENT should contain a URL, not just any text.
+    // It's generally not expected to contain HTML.
+    icsContent.push(`URL:${escapeICSText(event_location_href)}`); // isHtmlContent defaults to false
+  }
 
   if (event_desc) {
-    icsContent.push(`DESCRIPTION:${escapeICSText(event_desc)}`);
+    icsContent.push(`DESCRIPTION:${escapeICSText(event_desc, true)}`); // Process description as HTML
   }
   if (event_location_name) {
-    icsContent.push(`LOCATION:${escapeICSText(event_location_name)}`);
+    icsContent.push(`LOCATION:${escapeICSText(event_location_name)}`); // isHtmlContent defaults to false
   }
   
   icsContent.push('END:VEVENT');
