@@ -11,23 +11,6 @@
   </style>
 </head>
 <body>
-  <%
-    // Helper function to format date for datetime-local input
-    // Needed here for the "Create New Event" form's optional end date
-    const formatDateToDateTimeLocalString = (dateInput) => {
-      if (!dateInput) return '';
-      const date = new Date(dateInput);
-      if (isNaN(date.getTime())) return '';
-      
-      const year = date.getFullYear();
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const day = date.getDate().toString().padStart(2, '0');
-      const hours = date.getHours().toString().padStart(2, '0');
-      const minutes = date.getMinutes().toString().padStart(2, '0');
-      
-      return `${year}-${month}-${day}T${hours}:${minutes}`;
-    };
-  %>
   <div class="container">
     <h1>Admin Panel</h1>
 
@@ -37,7 +20,7 @@
       <% if (locals.error) { %>
         <p style="color: red;"><%= locals.error %></p>
       <% } %>
-      <form action="/admin/event" method="POST" enctype="multipart/form-data">
+      <form action="/admin/event" method="POST" enctype="multipart/form-data" id="createEventForm">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <h3>Create New Event</h3>
         <div>
@@ -128,5 +111,67 @@
       <% } %>
     </div>
   </div>
+
+  <script>
+    // Helper function to handle form submission for date conversion
+    function handleSubmitEventForm(event) {
+      const form = event.target;
+      const dateInput = form.querySelector('input[name="date"]'); // Select by original name
+      const dateEndInput = form.querySelector('input[name="date_end"]'); // Select by original name
+
+      if (dateInput && dateInput.value) {
+        const localDate = new Date(dateInput.value);
+        if (!isNaN(localDate.getTime())) {
+          const hiddenUtcDateInput = document.createElement('input');
+          hiddenUtcDateInput.type = 'hidden';
+          hiddenUtcDateInput.name = 'date'; // Keep original name for submission
+          hiddenUtcDateInput.value = localDate.toISOString();
+          form.appendChild(hiddenUtcDateInput);
+          dateInput.name = 'date_display'; // Change name of original input to avoid duplicate submission
+        } else {
+          dateInput.name = 'date_display_invalid';
+        }
+      } else if (dateInput) {
+        // If input is empty but exists, ensure its name is changed so it's not submitted as 'date'
+        dateInput.name = 'date_display_empty';
+      }
+
+      if (dateEndInput && dateEndInput.value) {
+        const localDateEnd = new Date(dateEndInput.value);
+        if (!isNaN(localDateEnd.getTime())) {
+          const hiddenUtcDateEndInput = document.createElement('input');
+          hiddenUtcDateEndInput.type = 'hidden';
+          hiddenUtcDateEndInput.name = 'date_end'; // Keep original name
+          hiddenUtcDateEndInput.value = localDateEnd.toISOString();
+          form.appendChild(hiddenUtcDateEndInput);
+          dateEndInput.name = 'date_end_display'; // Change name
+        } else {
+          dateEndInput.name = 'date_end_display_invalid';
+        }
+      } else if (dateEndInput) {
+        dateEndInput.name = 'date_end_display_empty';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      const createEventForm = document.getElementById('createEventForm');
+      if (createEventForm) {
+        createEventForm.addEventListener('submit', handleSubmitEventForm);
+      }
+
+      // Display errors from URL query params if any (e.g., from Multer)
+      const urlParams = new URLSearchParams(window.location.search);
+      const error = urlParams.get('error');
+      if (error && !document.querySelector('.form-section p[style="color: red;"]')) { 
+          const errorP = document.createElement('p');
+          errorP.style.color = 'red';
+          errorP.textContent = decodeURIComponent(error);
+          const formSectionH2 = document.querySelector('#createEventForm h3'); // Insert after "Create New Event"
+          if (formSectionH2 && formSectionH2.parentNode) {
+            formSectionH2.parentNode.insertBefore(errorP, formSectionH2.nextSibling);
+          }
+      }
+    });
+  </script>
 </body>
 </html>
