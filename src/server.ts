@@ -51,6 +51,9 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
 app.use(bodyParser.urlencoded({ extended: true })); // For form data
 
+// Make APP_BASE_URL available to all EJS templates
+app.locals.APP_BASE_URL = APP_BASE_URL;
+
 // Static serving for bundled public assets (CSS, etc.)
 // Resolves to <project_root>/dist/public when running compiled code
 app.use('/static', express.static(path.join(__dirname, '../public')));
@@ -630,7 +633,11 @@ app.post('/rsvp/:token', csrfProtection, async (req, res) => {
     
     await notifyAdmin(attendeeData, rsvp, (rsvp === 'yes' ? finalPartySize : 0));
     
-    res.render('thanks', { rsvp, party_size: (rsvp === 'yes' ? finalPartySize : 0) });
+    res.render('thanks', { 
+        rsvp, 
+        party_size: (rsvp === 'yes' ? finalPartySize : 0),
+        token: req.params.token // Pass token to the template
+    });
 });
 
 // Route for ICS file download
@@ -682,6 +689,7 @@ app.get('/ics/:token', async (req, res) => {
   
   // Extract domain from APP_BASE_URL for UID
   const domain = APP_BASE_URL.replace(/^https?:\/\//, '').split('/')[0];
+  const rsvpLink = `${APP_BASE_URL}/rsvp/${req.params.token}`;
 
   let icsContent = [
     'BEGIN:VCALENDAR',
@@ -697,30 +705,30 @@ app.get('/ics/:token', async (req, res) => {
     icsContent.push(`DTEND:${formatICSDate(event_date_end)}`);
   }
 
-  icsContent.push(`SUMMARY:${escapeICSText(event_title)}`); // isHtmlContent defaults to false
+  icsContent.push(`SUMMARY:${escapeICSText(event_title)}`);
 
   if (event_location_href) {
-    // URL property in VEVENT should contain a URL, not just any text.
-    // It's generally not expected to contain HTML.
-    icsContent.push(`URL:${escapeICSText(event_location_href)}`); // isHtmlContent defaults to false
+    icsContent.push(`URL:${escapeICSText(event_location_href)}`);
   }
+  
+  let descriptionForICS = event_desc || '';
+  descriptionForICS += `\n\nManage your RSVP or view event details: ${rsvpLink}`;
+  // Process the combined description (original event_desc as HTML, appended link as plain text)
+  icsContent.push(`DESCRIPTION:${escapeICSText(descriptionForICS, true)}`);
 
-  if (event_desc) {
-    icsContent.push(`DESCRIPTION:${escapeICSText(event_desc, true)}`); // Process description as HTML
-  }
   if (event_location_name) {
-    icsContent.push(`LOCATION:${escapeICSText(event_location_name)}`); // isHtmlContent defaults to false
+    icsContent.push(`LOCATION:${escapeICSText(event_location_name)}`);
   }
   
   icsContent.push('END:VEVENT');
   icsContent.push('END:VCALENDAR');
-  icsContent.push(''); // Ensure there's a final newline for proper ICS formatting
+  icsContent.push(''); 
 
   const filenameSafeTitle = (event_title || 'event').replace(/[^a-z0-9_.-]/gi, '_').substring(0, 50);
   
   res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="${filenameSafeTitle}.ics"`);
-  res.send(icsContent.join('\r\n')); // ICS spec requires CRLF line endings
+  res.send(icsContent.join('\r\n'));
 });
 
 
