@@ -149,6 +149,10 @@ th {
   margin-bottom: 1em;
 }
 
+.card h1 {
+  margin-top: 0;
+}
+
 @media (max-width: 768px) {
   .grid-container {
     grid-template-columns: 1fr;
