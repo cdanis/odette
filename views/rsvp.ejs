@@ -19,6 +19,7 @@
             overflow: hidden; /* If banner is first child and has different radius */
         }
         .event-time, .event-location { margin-bottom: 0.5rem; }
+        .add-to-calendar-container { margin-top: 1rem; margin-bottom: 1.5rem; }
     </style>
 </head>
 
@@ -57,6 +58,13 @@
             <% if (attendee.event_desc) { %>
                 <p class="description"><%- attendee.event_desc %></p>
             <% } %>
+
+            <%# "Add to Calendar" button %>
+            <div class="add-to-calendar-container">
+                <a href="/ics/<%= attendee.token %>" class="button is-link" download>
+                    <span>📅 Add to Calendar</span>
+                </a>
+            </div>
         </div>
 
         <%# todo: htmx island %>

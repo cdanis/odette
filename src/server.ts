@@ -164,6 +164,24 @@ export function generateToken(): string {
   return crypto.randomBytes(16).toString('hex');
 }
 
+// Helper function to format JS timestamp to ICS UTC date-time string
+function formatICSDate(timestamp: number): string {
+  const date = new Date(timestamp);
+  const pad = (num: number) => num.toString().padStart(2, '0');
+  return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`;
+}
+
+// Helper function to escape text for ICS content
+function escapeICSText(text: string | null | undefined): string {
+  if (!text) return '';
+  // Escape backslashes first, then other characters
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
+}
+
 export async function sendInvitation(name: string, email: string, token: string, eventTitle: string) {
   const link = `${APP_BASE_URL}/rsvp/${token}`;
   const html = `<p>Hi ${name},</p>\n<p>You are invited to ${eventTitle}.</p>\n<p>Please RSVP here: <a href=\"${link}\">${link}</a></p>`;
@@ -591,6 +609,87 @@ app.post('/rsvp/:token', csrfProtection, async (req, res) => {
     
     res.render('thanks', { rsvp, party_size: (rsvp === 'yes' ? finalPartySize : 0) });
 });
+
+// Route for ICS file download
+app.get('/ics/:token', async (req, res) => {
+  if (!/^[0-9a-f]{32}$/.test(req.params.token)) {
+    res.status(400).send('Invalid token format');
+    return;
+  }
+
+  const eventDataForICS = db.prepare(
+    `SELECT e.id AS event_id,
+            e.title AS event_title, 
+            e.date AS event_date, 
+            e.description AS event_desc,
+            e.location_name AS event_location_name,
+            e.date_end AS event_date_end
+     FROM attendees a 
+     JOIN events e ON a.event_id=e.id 
+     WHERE a.token=?`
+  ).get(req.params.token) as { 
+    event_id: number;
+    event_title: string; 
+    event_date: number; 
+    event_desc: string | null; 
+    event_location_name: string | null;
+    event_date_end: number | null;
+  } | undefined;
+
+  if (!eventDataForICS) {
+    res.status(404).send('Event details not found for this token.');
+    return;
+  }
+
+  const { 
+    event_id,
+    event_title, 
+    event_date, 
+    event_desc, 
+    event_location_name, 
+    event_date_end 
+  } = eventDataForICS;
+
+  const now = Date.now();
+  const dtstamp = formatICSDate(now);
+  const dtstart = formatICSDate(event_date);
+  
+  // Extract domain from APP_BASE_URL for UID
+  const domain = APP_BASE_URL.replace(/^https?:\/\//, '').split('/')[0];
+
+  let icsContent = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    `PRODID:-//${domain}//NONSGML Event Calendar//EN`,
+    'BEGIN:VEVENT',
+    `UID:event-${event_id}@${domain}`,
+    `DTSTAMP:${dtstamp}`,
+    `DTSTART:${dtstart}`,
+  ];
+
+  if (event_date_end) {
+    icsContent.push(`DTEND:${formatICSDate(event_date_end)}`);
+  }
+
+  icsContent.push(`SUMMARY:${escapeICSText(event_title)}`);
+
+  if (event_desc) {
+    icsContent.push(`DESCRIPTION:${escapeICSText(event_desc)}`);
+  }
+  if (event_location_name) {
+    icsContent.push(`LOCATION:${escapeICSText(event_location_name)}`);
+  }
+  
+  icsContent.push('END:VEVENT');
+  icsContent.push('END:VCALENDAR');
+
+  const filenameSafeTitle = (event_title || 'event').replace(/[^a-z0-9_.-]/gi, '_').substring(0, 50);
+  
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="${filenameSafeTitle}.ics"`);
+  res.send(icsContent.join('\r\n')); // ICS spec requires CRLF line endings
+});
+
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err instanceof multer.MulterError) {
