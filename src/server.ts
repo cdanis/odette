@@ -62,24 +62,10 @@ app.use(session({
   // cookie: { secure: process.env.NODE_ENV === 'production' } // Use secure cookies in production (requires HTTPS)
 }));
 
-// CSRF protection middleware
-// Note: csurf must be after session middleware and body-parser
+// CSRF protection middleware instance
 const csrfProtection = csurf();
-// We will apply csrfProtection selectively or globally after multer potentially
-// For now, let's apply it globally and see how it interacts with file uploads.
-// Multer processes multipart forms before CSRF, so req.body might not be populated for CSRF token check
-// if multer is used on the same route. A common pattern is to have multer process first.
-// The order here is: bodyParser, session, then csrf.
-// If a route uses multer, multer should be middleware before the main handler.
-
-app.use(csrfProtection); // Apply CSRF globally
-
-// Middleware to make CSRF token available to all views (optional, but convenient)
-// Or pass it explicitly in each route handler
-app.use((req, res, next) => {
-  res.locals.csrfToken = req.csrfToken();
-  next();
-});
+// IMPORTANT: CSRF protection will be applied on a per-route basis.
+// Multer (for file uploads) must run BEFORE csrfProtection on routes that handle multipart/form-data.
 
 
 export const db = new Database.default(DB_PATH);
@@ -134,10 +120,10 @@ const storage = multer.diskStorage({
   },
   filename: function (req, file, cb) {
     // Filename: event-<eventId>-<timestamp>.<ext>
-    // If eventId is not yet available (e.g. new event), use a temporary name
-    const eventId = req.params.eventId || 'temp';
+    // If eventId is not yet available (e.g. new event), use a temporary name part
+    const eventIdPart = req.params.eventId || 'temp'; 
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, `event-${eventId}-${uniqueSuffix}${path.extname(file.originalname)}`);
+    cb(null, `event-${eventIdPart}-${uniqueSuffix}${path.extname(file.originalname)}`);
   }
 });
 
@@ -145,11 +131,16 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
   if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' || file.mimetype === 'image/gif') {
     cb(null, true);
   } else {
+    // Important: Pass an error to cb to reject the file
     cb(new Error('Invalid file type. Only JPEG, PNG, and GIF are allowed.'));
   }
 };
 
-const upload = multer({ storage: storage, fileFilter: fileFilter, limits: { fileSize: 5 * 1024 * 1024 } }); // Limit file size to 5MB
+const upload = multer({ 
+    storage: storage, 
+    fileFilter: fileFilter, 
+    limits: { fileSize: 5 * 1024 * 1024 } // Limit file size to 5MB
+});
 
 
 export function generateToken(): string {
@@ -250,16 +241,16 @@ function getEventAttendeeStats(eventId: number): AttendeeStats {
 
 type EventRecordWithStats = EventRecord & { stats: AttendeeStats };
 
-app.get('/admin', (req, res) => {
+app.get('/admin', csrfProtection, (req, res) => {
   const eventsRaw = db.prepare('SELECT * FROM events ORDER BY date').all() as EventRecord[];
   const events: EventRecordWithStats[] = eventsRaw.map(event => ({
     ...event,
     stats: getEventAttendeeStats(event.id)
   }));
-  res.render('admin', { events });
+  res.render('admin', { events, csrfToken: req.csrfToken() });
 });
 
-app.get('/admin/:eventId', (req, res) => {
+app.get('/admin/:eventId', csrfProtection, (req, res) => {
   const eventId = +req.params.eventId;
   const event = db.prepare('SELECT * FROM events WHERE id = ?').get(eventId) as EventRecord | undefined;
   if (!event) {
@@ -272,10 +263,10 @@ app.get('/admin/:eventId', (req, res) => {
   const allEvents = db.prepare('SELECT id, title FROM events WHERE id != ? ORDER BY title').all(eventId) as {id: number, title: string}[];
   const attendeeStats = getEventAttendeeStats(eventId);
 
-  res.render('event-admin', { event, attendees, allEvents, attendeeStats });
+  res.render('event-admin', { event, attendees, allEvents, attendeeStats, csrfToken: req.csrfToken() });
 });
 
-app.post('/admin/event', upload.single('banner_image'), (req, res) => {
+app.post('/admin/event', upload.single('banner_image'), csrfProtection, (req, res) => {
   const { title, date, description } = req.body;
   const dateTimestamp = new Date(date).getTime();
   
@@ -285,19 +276,24 @@ app.post('/admin/event', upload.single('banner_image'), (req, res) => {
   const eventId = result.lastInsertRowid;
 
   if (req.file && eventId) {
-    const tempFilename = req.file.filename;
+    const tempMulterFilename = req.file.filename; // Filename given by multer (might contain 'temp')
+    // Construct final filename with the actual eventId
     const finalFilename = `event-${eventId}-${Date.now()}${path.extname(req.file.originalname)}`;
-    const oldPath = path.join(uploadDir, tempFilename);
+    
+    const oldPath = path.join(uploadDir, tempMulterFilename);
     const newPath = path.join(uploadDir, finalFilename);
 
     fs.rename(oldPath, newPath, (err) => {
       if (err) {
-        console.error("Error renaming uploaded file:", err);
-        // Keep the event, but banner won't be linked. Or handle error more gracefully.
+        console.error("Error renaming uploaded file for new event:", err);
+        // If renaming fails, the temp file might still exist. Consider deleting it.
+        // fs.unlink(oldPath, () => {}); // Attempt to clean up temp file
       } else {
         db.prepare('UPDATE events SET banner_image_filename = ? WHERE id = ?')
           .run(finalFilename, eventId);
       }
+      // Redirect regardless of rename success to avoid hanging the request.
+      // Error is logged server-side.
       res.redirect('/admin');
     });
   } else {
@@ -305,22 +301,24 @@ app.post('/admin/event', upload.single('banner_image'), (req, res) => {
   }
 });
 
-app.post('/admin/event/:eventId/update', upload.single('banner_image'), (req, res) => {
+app.post('/admin/event/:eventId/update', upload.single('banner_image'), csrfProtection, (req, res) => {
   const eventId = +req.params.eventId;
   const { title, date, description } = req.body;
   const dateTimestamp = new Date(date).getTime();
 
-  let newBannerFilename: string | null = null;
-
   if (req.file) {
-    newBannerFilename = req.file.filename;
+    const newBannerFilename = req.file.filename; // Multer already used eventId in filename here
+    
     // Fetch old banner filename to delete it
     const oldEventData = db.prepare('SELECT banner_image_filename FROM events WHERE id = ?').get(eventId) as { banner_image_filename?: string | null };
     if (oldEventData && oldEventData.banner_image_filename) {
       const oldBannerPath = path.join(uploadDir, oldEventData.banner_image_filename);
       fs.unlink(oldBannerPath, (err) => {
-        if (err) console.error(`Failed to delete old banner image ${oldBannerPath}:`, err);
-        else console.log(`Deleted old banner image ${oldBannerPath}`);
+        if (err && err.code !== 'ENOENT') { // ENOENT (Error NO ENTity) means file not found, which is fine
+             console.error(`Failed to delete old banner image ${oldBannerPath}:`, err);
+        } else if (!err) {
+            console.log(`Deleted old banner image ${oldBannerPath}`);
+        }
       });
     }
     db.prepare('UPDATE events SET title = ?, date = ?, description = ?, banner_image_filename = ? WHERE id = ?')
@@ -333,15 +331,14 @@ app.post('/admin/event/:eventId/update', upload.single('banner_image'), (req, re
   res.redirect(`/admin/${eventId}`);
 });
 
-app.post('/admin/attendee', (req, res) => {
+app.post('/admin/attendee', csrfProtection, (req, res) => {
   const eventId = +req.body.event_id;
-  // Ensure party_size is a number, default to 1 if invalid or not provided
   const partySize = parseInt(req.body.party_size, 10);
   upsertAttendee(eventId, req.body.name, req.body.email, isNaN(partySize) || partySize < 1 ? 1 : partySize);
   res.redirect(`/admin/${eventId}`);
 });
 
-app.post('/admin/attendees/batch', (req, res) => {
+app.post('/admin/attendees/batch', csrfProtection, (req, res) => {
   const eventId = +req.body.event_id;
   req.body.csv.split(/\r?\n/).forEach((line: string) => {
     const [name, email, partyStr] = line.split(',').map((s: string) => s.trim());
@@ -353,7 +350,7 @@ app.post('/admin/attendees/batch', (req, res) => {
   res.redirect(`/admin/${eventId}`);
 });
 
-app.post('/admin/event/:eventId/attendees/parse-emails', (req, res) => {
+app.post('/admin/event/:eventId/attendees/parse-emails', csrfProtection, (req, res) => {
   const eventId = +req.params.eventId;
   const emailFieldData = req.body.email_field_data as string;
 
@@ -367,7 +364,7 @@ app.post('/admin/event/:eventId/attendees/parse-emails', (req, res) => {
       if (parsed.address) {
         const email = parsed.address;
         const name = parsed.name || email.substring(0, email.lastIndexOf('@')).replace(/[."']/g, ' ').trim();
-        upsertAttendee(eventId, name, email); // Defaults party size to 1 on insert, doesn't update existing party size
+        upsertAttendee(eventId, name, email); 
       }
     });
   } catch (error) {
@@ -377,7 +374,7 @@ app.post('/admin/event/:eventId/attendees/parse-emails', (req, res) => {
   res.redirect(`/admin/${eventId}`);
 });
 
-app.post('/admin/attendees/copy', (req, res) => {
+app.post('/admin/attendees/copy', csrfProtection, (req, res) => {
   const fromEventId = +req.body.from_event;
   const toEventId = +req.body.to_event;
   const rows = db.prepare('SELECT name,email,party_size FROM attendees WHERE event_id=?').all(fromEventId) as {name: string, email: string, party_size: number}[];
@@ -388,14 +385,14 @@ app.post('/admin/attendees/copy', (req, res) => {
 interface InviteeWithEventId extends Invitee { event_id: number; }
 interface Invitee { id: number; name: string; email: string; token: string; }
 
-app.post('/admin/attendees/send/:attendeeId', async (req, res) => {
+app.post('/admin/attendees/send/:attendeeId', csrfProtection, async (req, res) => {
   const attendeeId = +req.params.attendeeId;
   const a = db.prepare('SELECT id, name, email, token, event_id FROM attendees WHERE id=?').get(attendeeId) as InviteeWithEventId | undefined;
   if (a) {
     const event = db.prepare('SELECT title FROM events WHERE id = ?').get(a.event_id) as { title: string } | undefined;
     if (!event) {
         console.error(`Event not found for attendee ID ${attendeeId} with event_id ${a.event_id}`);
-        res.status(404).send('Error: Associated event not found.'); // Changed to 404
+        res.status(404).send('Error: Associated event not found.');
         return;
     }
     await sendInvitation(a.name, a.email, a.token, event.title);
@@ -406,7 +403,7 @@ app.post('/admin/attendees/send/:attendeeId', async (req, res) => {
   }
 });
 
-app.post('/admin/events/:eventId/send-invites', async (req, res) => {
+app.post('/admin/events/:eventId/send-invites', csrfProtection, async (req, res) => {
   const eventId = +req.params.eventId;
   const event = db.prepare('SELECT title FROM events WHERE id = ?').get(eventId) as { title: string } | undefined;
 
@@ -424,7 +421,7 @@ app.post('/admin/events/:eventId/send-invites', async (req, res) => {
   res.redirect(`/admin/${eventId}`);
 });
 
-app.post('/admin/attendee/:attendeeId/update-party-size', (req, res) => {
+app.post('/admin/attendee/:attendeeId/update-party-size', csrfProtection, (req, res) => {
   const attendeeId = +req.params.attendeeId;
   const newPartySize = parseInt(req.body.party_size, 10);
 
@@ -462,12 +459,12 @@ app.post('/admin/attendee/:attendeeId/update-party-size', (req, res) => {
 });
 
 
-app.get('/user/:id', (req, res) => {
+app.get('/user/:id', (req, res) => { // No form, no CSRF needed
     res.send(`user ${req.params.id}`)
   });
 
 
-app.get('/rsvp/:tok', (req, res) => {
+app.get('/rsvp/:tok', csrfProtection, (req, res) => {
         if (!/^[0-9a-f]{32}$/.test(req.params.tok)) {
             res.status(400).send('Invalid token format');
             return;
@@ -481,83 +478,101 @@ app.get('/rsvp/:tok', (req, res) => {
              FROM attendees a 
              JOIN events e ON a.event_id=e.id 
              WHERE a.token=?`
-        ).get(req.params.tok) as AttendeeView | undefined; // Added undefined possibility
+        ).get(req.params.tok) as AttendeeView | undefined; 
 
         if (!attendee) {
             res.status(404).send('Invalid link');
             return;
         }
-        res.render('rsvp', { attendee });
+        res.render('rsvp', { attendee, csrfToken: req.csrfToken() });
 });
 
-app.post('/rsvp/:token', async (req, res) => {
+app.post('/rsvp/:token', csrfProtection, async (req, res) => {
     if (!/^[0-9a-f]{32}$/.test(req.params.token)) {
         res.status(400).send('Invalid token format');
         return;
     }
-        const { rsvp, party_size } = req.body;
-        const now = Date.now();
-        const a = db.prepare(
-            'SELECT a.name, a.token, e.title AS event_title FROM attendees a JOIN events e ON a.event_id=e.id WHERE a.token=?'
-        ).get(req.params.token) as { name: string; token: string; event_title: string } | undefined; // Added undefined
+    const { rsvp, party_size: partySizeStr } = req.body;
+    const now = Date.now();
+    
+    const attendeeData = db.prepare(
+        `SELECT a.name, a.token, a.party_size AS original_party_size, 
+                e.title AS event_title 
+         FROM attendees a 
+         JOIN events e ON a.event_id=e.id 
+         WHERE a.token=?`
+    ).get(req.params.token) as { name: string; token: string; event_title: string; original_party_size: number; } | undefined;
 
-        if (!a) {
-            res.status(404).send('Invalid token or attendee not found.');
+    if (!attendeeData) {
+        res.status(404).send('Invalid token or attendee not found.');
+        return;
+    }
+
+    let finalPartySize = attendeeData.original_party_size; // Default to original party size
+
+    if (rsvp === 'yes') {
+        const parsedPartySize = parseInt(partySizeStr, 10);
+        if (isNaN(parsedPartySize) || parsedPartySize < 1) {
+            res.status(400).send('Invalid party size for RSVP "yes". Please go back and enter a valid number.');
             return;
         }
-        const finalPartySize = parseInt(party_size, 10);
-        if (isNaN(finalPartySize) || finalPartySize < 1) {
-            // Handle invalid party size from RSVP form, perhaps redirect back with error
-            // For now, let's default to 1 if 'yes', or keep existing if 'no' (though form should disable it)
-            // This part needs careful consideration based on UX for RSVP form.
-            // Assuming party_size is validated on client or required.
-            // If rsvp is 'no', party_size might not matter or be 0.
-            // The DB update will take the value.
-        }
-
-
-        db.prepare('UPDATE attendees SET rsvp=?,party_size=?,responded_at=? WHERE token=?')
-            .run(rsvp, finalPartySize, now, req.params.token);
-        await notifyAdmin(a, rsvp, finalPartySize);
-        res.render('thanks', { rsvp, party_size: finalPartySize });
+        finalPartySize = parsedPartySize;
     }
-);
+    // If rsvp is 'no', finalPartySize remains the original_party_size for DB storage,
+    // but for notification, we'll send 0.
+
+    db.prepare('UPDATE attendees SET rsvp=?, party_size=?, responded_at=? WHERE token=?')
+        .run(rsvp, finalPartySize, now, req.params.token);
+    
+    await notifyAdmin(attendeeData, rsvp, (rsvp === 'yes' ? finalPartySize : 0));
+    
+    res.render('thanks', { rsvp, party_size: (rsvp === 'yes' ? finalPartySize : 0) });
+});
 
 // Error handling for Multer (e.g., file too large, wrong type)
+// This should come BEFORE the general CSRF error handler if Multer errors should be handled distinctly.
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err instanceof multer.MulterError) {
-    // A Multer error occurred when uploading.
-    console.error('Multer Error:', err);
-    // Redirect back or send error message. For simplicity, redirecting to admin for now.
-    // You might want to use connect-flash for flash messages.
-    if (req.params.eventId) {
-        return res.redirect(`/admin/${req.params.eventId}?error=${encodeURIComponent(err.message)}`);
-    }
-    return res.redirect('/admin?error=' + encodeURIComponent(err.message));
-  } else if (err && err.message === 'Invalid file type. Only JPEG, PNG, and GIF are allowed.') {
-    console.error('File Type Error:', err);
-    if (req.params.eventId) {
-        return res.redirect(`/admin/${req.params.eventId}?error=${encodeURIComponent(err.message)}`);
-    }
-    return res.redirect('/admin?error=' + encodeURIComponent(err.message));
-  } else if (err) {
-    // An unknown error occurred.
-    next(err);
-  } else {
-    next();
+    console.error('Multer Error:', err.message); // Log only message for brevity
+    // Try to redirect back to the form page with an error query parameter
+    const redirectUrl = req.headers.referer || (req.body.event_id ? `/admin/${req.body.event_id}` : (req.params.eventId ? `/admin/${req.params.eventId}` : '/admin'));
+    return res.redirect(`${redirectUrl}?error=${encodeURIComponent(err.message)}`);
+  } else if (err && (err.message.includes('Invalid file type') || err.message.includes('File too large'))) { 
+    // This catches errors thrown by our custom fileFilter or Multer's limits
+    console.error('File Upload Error:', err.message);
+    const redirectUrl = req.headers.referer || (req.body.event_id ? `/admin/${req.body.event_id}` : (req.params.eventId ? `/admin/${req.params.eventId}` : '/admin'));
+    return res.redirect(`${redirectUrl}?error=${encodeURIComponent(err.message)}`);
   }
+  next(err); // Pass on to other error handlers if not a Multer-related error we handle here
 });
 
 
 // CSRF Error Handler
-// This must be defined after all routes that use CSRF protection and other error handlers
+// This must be defined after all routes that use CSRF protection.
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err.code === 'EBADCSRFTOKEN') {
     console.error('CSRF Token Error:', err);
-    res.status(403).send('Form tampered with or session expired - please try again.');
+    let userMessage = 'Form tampered with or session expired. Please refresh the page and try again.';
+    let backLink = req.headers.referer || '/admin'; // Default back link
+
+    if (req.originalUrl.startsWith('/admin')) {
+        userMessage = 'Admin form submission error (CSRF): Form tampered with or session expired. Please refresh and try again.';
+        backLink = req.originalUrl.split('?')[0]; // Link back to the specific admin page if possible
+         if (!req.originalUrl.includes('/admin/event/')) { // Avoid linking to POST URLs
+            backLink = '/admin';
+         }
+    } else if (req.originalUrl.startsWith('/rsvp')) {
+        userMessage = 'RSVP submission error (CSRF): Form submission issue or session expired. Please try using your unique link again. If the problem persists, contact the event organizer.';
+        // For RSVP, redirecting back might not be useful if the token is truly invalid.
+        // A generic error page or message is often better.
+        // We could try to get the token from the URL if it's a GET, but it's a POST error.
+        backLink = '/'; // Or a generic error page
+    }
+    // It's often better to render an error page than just send text
+    // For simplicity, sending text with a link.
+    res.status(403).send(`${userMessage} <a href="${backLink}">Go back</a>`);
   } else {
-    // If it's not a CSRF error, pass it to the default Express error handler (or other custom error handlers)
-    // This is important if the multer error handler above calls next(err) for non-multer errors.
+    // If it's not a CSRF error, pass it to the default Express error handler or other custom error handlers.
     next(err); 
   }
 });
