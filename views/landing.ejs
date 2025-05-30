@@ -1,9 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nothing+You+Could+Do&display=swap" rel="stylesheet">
     <%- include('header'); %>
-    <title>Simple RSVP Invites - Welcome!</title>
+    <title>odette: simple event invites</title>
     <style>
+        .title {
+            font-size: 3rem; /* Make the title larger */
+            font-weight: bold;
+            margin-bottom: 1rem;
+            font-family: "Nothing You Could Do", cursive;
+        }
         .hero-body {
             text-align: center;
         }
@@ -12,7 +21,7 @@
             margin: 1rem 0;
         }
         .hero-tagline {
-            font-size: 1.25rem;
+            font-size: 1.1rem;
             color: #4a4a4a; /* Bulma's default text color for readability */
             margin-bottom: 1.5rem;
         }
@@ -26,22 +35,16 @@
         <div class="hero-body">
             <div class="container">
                 <h1 class="title is-1">
-                    Simple RSVP Invites
+                    odette 💌
                 </h1>
                 <div class="hero-emojis">
-                    📅 💌
+                    📅
                 </div>
                 <p class="hero-tagline">
-                    Dirt-simple event invites, always free, never ads or bloat.
+                    Dirt-simple event invites, always free, never ads ✊
                 </p>
-                <div class="admin-link-container">
-                    <a href="/admin" class="button is-primary is-medium">
-                        Go to Admin Panel
-                    </a>
-                </div>
             </div>
         </div>
     </section>
-    <%# CSRF token is available via csrfToken if needed for any forms on this page in the future %>
 </body>
 </html>

@@ -355,8 +355,8 @@ function getEventAttendeeStats(eventId: number): AttendeeStats {
 type EventRecordWithStats = EventRecord & { stats: AttendeeStats };
 
 // Landing Page Route
-app.get('/', csrfProtection, (req, res) => {
-  res.render('landing', { csrfToken: req.csrfToken() });
+app.get('/', (req, res) => {
+  res.render('landing');
 });
 
 app.get('/admin', csrfProtection, (req, res) => {
