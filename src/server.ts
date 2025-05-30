@@ -223,19 +223,90 @@ function escapeICSText(text: string | null | undefined, isHtmlContent: boolean =
     .replace(/;/g, '\\;');  // Escape semicolons
 }
 
-export async function sendInvitation(name: string, email: string, token: string, eventTitle: string) {
-  const link = `${APP_BASE_URL}/rsvp/${token}`;
-  const html = `<p>Hi ${name},</p>\n<p>You are invited to ${eventTitle}.</p>\n<p>Please RSVP here: <a href=\"${link}\">${link}</a></p>`;
-  const subject = `Please RSVP for ${eventTitle}`;
-  console.log(`Preparing to send invite to ${email} for event "${eventTitle}"`);
+// Helper function to convert HTML to plain text for email body
+function htmlToPlainText(html: string | null | undefined): string {
+  if (!html) return '';
+  let text = String(html);
+  // Convert <br> and <p> tags to newlines
+  text = text.replace(/<br\s*\/?>/gi, '\n');
+  text = text.replace(/<\/p>\s*<p>/gi, '\n\n'); // Convert paragraph breaks to double newlines
+  // Strip all other HTML tags
+  text = text.replace(/<[^>]+>/g, '');
+  // Decode common HTML entities
+  text = text.replace(/&amp;/g, '&')
+             .replace(/&lt;/g, '<')
+             .replace(/&gt;/g, '>')
+             .replace(/&quot;/g, '"')
+             .replace(/&#039;/g, "'")
+             .replace(/&apos;/g, "'")
+             .replace(/&nbsp;/g, ' '); // Non-breaking space to space
+  return text.trim();
+}
+
+
+export async function sendInvitation(name: string, email: string, token: string, event: EventRecord) {
+  const rsvpLink = `${APP_BASE_URL}/rsvp/${token}`;
+  const icsLink = `${APP_BASE_URL}/ics/${token}`;
+
+  // Date formatting
+  const startDate = new Date(event.date);
+  // Using toLocaleString for user-friendly date/time. Options ensure clarity.
+  const dateOptions: Intl.DateTimeFormatOptions = { dateStyle: 'full', timeStyle: 'short' };
+  let whenString = startDate.toLocaleString(undefined, dateOptions);
+
+  if (event.date_end) {
+    const endDate = new Date(event.date_end);
+    if (startDate.toDateString() === endDate.toDateString()) { // Same day
+      // Only show time for end date if it's on the same day
+      whenString += ` to ${endDate.toLocaleTimeString(undefined, { timeStyle: 'short' })}`;
+    } else { // Different days
+      whenString += ` to ${endDate.toLocaleString(undefined, dateOptions)}`;
+    }
+  }
+
+  // Location formatting
+  let locationHtml = '';
+  if (event.location_name && event.location_href) {
+    locationHtml = `<a href="${event.location_href}" target="_blank">${event.location_name}</a>`;
+  } else if (event.location_name) {
+    locationHtml = event.location_name;
+  } else if (event.location_href) {
+    locationHtml = `<a href="${event.location_href}" target="_blank">${event.location_href}</a>`;
+  }
+
+  // Description formatting
+  const plainDescription = htmlToPlainText(event.description);
+
+  const html = `
+    <p>Hi ${name},</p>
+    <p>You are invited to <strong>${event.title}</strong>.</p>
+    
+    <hr style="margin: 20px 0;">
+
+    <p><strong>When:</strong><br>${whenString}</p>
+    
+    ${locationHtml ? `<p><strong>Where:</strong><br>${locationHtml}</p>` : ''}
+    
+    ${plainDescription ? `
+      <p><strong>Event Details:</strong></p>
+      <div style="white-space: pre-wrap; padding: 10px; border: 1px solid #eeeeee; background-color: #f9f9f9; border-radius: 4px; margin-top: 5px;">${plainDescription}</div>
+    ` : ''}
+    
+    <hr style="margin: 20px 0;">
+
+    <p>Please RSVP here: <a href="${rsvpLink}">${rsvpLink}</a></p>
+    <p>Add to your calendar: <a href="${icsLink}">Download Calendar File (.ics)</a></p>
+  `;
+
+  const subject = `Invitation: ${event.title}`;
+  console.log(`Preparing to send invite to ${email} for event "${event.title}"`);
+
   if (SMTP_USER && SMTP_PASS) {
     try {
       await transporter.sendMail({ from: SMTP_USER, to: email, subject, html });
       console.log(`Invite successfully sent to ${email}`);
     } catch (error) {
-      console.error(`Failed to send invite to ${email} for event "${eventTitle}". Error:`, error);
-      // Depending on requirements, you might want to re-throw the error or handle it differently
-      // For now, we just log it and continue, as the calling function might not expect an error here.
+      console.error(`Failed to send invite to ${email} for event "${event.title}". Error:`, error);
     }
   } else {
     console.log(`SMTP not configured. Mock sending invite to ${email}: Subject: ${subject}, Body: ${html}`);
@@ -526,13 +597,13 @@ app.post('/admin/attendees/send/:attendeeId', csrfProtection, async (req, res) =
   const attendeeId = +req.params.attendeeId;
   const a = db.prepare('SELECT id, name, email, token, event_id FROM attendees WHERE id=?').get(attendeeId) as InviteeWithEventId | undefined;
   if (a) {
-    const event = db.prepare('SELECT title FROM events WHERE id = ?').get(a.event_id) as { title: string } | undefined;
+    const event = db.prepare('SELECT * FROM events WHERE id = ?').get(a.event_id) as EventRecord | undefined;
     if (!event) {
         console.error(`Event not found for attendee ID ${attendeeId} with event_id ${a.event_id}`);
         res.status(404).send('Error: Associated event not found.');
         return;
     }
-    await sendInvitation(a.name, a.email, a.token, event.title);
+    await sendInvitation(a.name, a.email, a.token, event);
     db.prepare('UPDATE attendees SET is_sent=1, last_modified=? WHERE id=?').run(Date.now(), attendeeId);
     res.redirect(`/admin/${a.event_id}`);
   } else {
@@ -542,7 +613,7 @@ app.post('/admin/attendees/send/:attendeeId', csrfProtection, async (req, res) =
 
 app.post('/admin/events/:eventId/send-invites', csrfProtection, async (req, res) => {
   const eventId = +req.params.eventId;
-  const event = db.prepare('SELECT title FROM events WHERE id = ?').get(eventId) as { title: string } | undefined;
+  const event = db.prepare('SELECT * FROM events WHERE id = ?').get(eventId) as EventRecord | undefined;
   const now = Date.now();
 
   if (!event) {
@@ -553,7 +624,7 @@ app.post('/admin/events/:eventId/send-invites', csrfProtection, async (req, res)
 
   const pending = db.prepare('SELECT id,name,email,token FROM attendees WHERE event_id=? AND is_sent=0').all(eventId) as Invitee[];
   for (const a of pending) {
-    await sendInvitation(a.name, a.email, a.token, event.title);
+    await sendInvitation(a.name, a.email, a.token, event);
     db.prepare('UPDATE attendees SET is_sent=1, last_modified=? WHERE id=?').run(now, a.id);
   }
   res.redirect(`/admin/${eventId}`);
