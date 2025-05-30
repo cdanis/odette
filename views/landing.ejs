@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <%- include('header'); %>
+    <title>Simple RSVP Invites - Welcome!</title>
+    <style>
+        .hero-body {
+            text-align: center;
+        }
+        .hero-emojis {
+            font-size: 3rem; /* Make emojis larger */
+            margin: 1rem 0;
+        }
+        .hero-tagline {
+            font-size: 1.25rem;
+            color: #4a4a4a; /* Bulma's default text color for readability */
+            margin-bottom: 1.5rem;
+        }
+        .admin-link-container {
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <section class="hero is-fullheight-with-navbar">
+        <div class="hero-body">
+            <div class="container">
+                <h1 class="title is-1">
+                    Simple RSVP Invites
+                </h1>
+                <div class="hero-emojis">
+                    📅 💌
+                </div>
+                <p class="hero-tagline">
+                    Dirt-simple event invites, always free, never ads or bloat.
+                </p>
+                <div class="admin-link-container">
+                    <a href="/admin" class="button is-primary is-medium">
+                        Go to Admin Panel
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+    <%# CSRF token is available via csrfToken if needed for any forms on this page in the future %>
+</body>
+</html>

@@ -354,6 +354,11 @@ function getEventAttendeeStats(eventId: number): AttendeeStats {
 
 type EventRecordWithStats = EventRecord & { stats: AttendeeStats };
 
+// Landing Page Route
+app.get('/', csrfProtection, (req, res) => {
+  res.render('landing', { csrfToken: req.csrfToken() });
+});
+
 app.get('/admin', csrfProtection, (req, res) => {
   const eventsRaw = db.prepare('SELECT * FROM events ORDER BY date').all() as EventRecord[];
   const events: EventRecordWithStats[] = eventsRaw.map(event => ({
