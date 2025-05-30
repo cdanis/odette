@@ -35,11 +35,11 @@
             </div>
             <div class="event-time">
                 <strong>When:</strong> 
-                <span class="local-datetime" data-timestamp="<%= attendee.event_date %>">
+                <span id="event-start-time" class="local-datetime" data-timestamp="<%= attendee.event_date %>">
                     <%= new Date(attendee.event_date).toLocaleString() %>
                 </span>
                 <% if (attendee.event_date_end) { %>
-                    to <span class="local-datetime" data-timestamp="<%= attendee.event_date_end %>">
+                    to <span id="event-end-time" class="local-datetime" data-timestamp="<%= attendee.event_date_end %>">
                         <%= new Date(attendee.event_date_end).toLocaleString() %>
                     </span>
                 <% } %>
@@ -86,13 +86,44 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/utc.min.js" integrity="sha512-z84O912dDT9nKqvpBnl1tri5IN0j/OEgMzLN1GlkpKLMscs5ZHVu+G2CYtA6dkS0YnOGi3cODt3BOPnYc8Agjg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/timezone.min.js" integrity="sha512-nrkE2nl0pcqWefIY627DY1exPOSuZXMdOrxMxX0y7Ly6RH8K0WDjO1lqakkxQcX5m8hxoUSt75seRRiyhqPvIw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/localizedFormat.min.js" integrity="sha512-vjS0MkqX58pv35Mv03gzee3TSJ74Gg5lPkgel1V8czy+sTX/ZoFMs/FqnGzWpf3IV+Ry3/mJ0i9nANcjKk1fBg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/isSameOrBefore.min.js" integrity="sha512-876cPC20xdc0h0OI0Cjpll3uG3WJ2Y6tk2r59Y2LDG2XhWZXChE9GAb1UqkzBRNIn3s9N1yP7U02AQoW7JjYAg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/isSameOrAfter.min.js" integrity="sha512-f3WgCJaL8N0hK2hWIFgS2XhQnAljQJ0X3oJ6IChP2SbT62D0rG4L0E8xPzNnSylwLh3hG2zXhY3AEkL8sMRsA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
         dayjs.extend(dayjs_plugin_utc);
         dayjs.extend(dayjs_plugin_timezone);
         dayjs.extend(dayjs_plugin_localizedFormat);
+        dayjs.extend(dayjs_plugin_isSameOrBefore); // Though isSame is part of core, explicit for clarity if needed elsewhere
+        dayjs.extend(dayjs_plugin_isSameOrAfter);  // Same as above
 
         document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('.local-datetime').forEach(el => {
+            const startTimeEl = document.getElementById('event-start-time');
+            const endTimeEl = document.getElementById('event-end-time');
+
+            let startDate;
+
+            if (startTimeEl) {
+                const startTimestamp = startTimeEl.dataset.timestamp;
+                if (startTimestamp && !isNaN(Number(startTimestamp))) {
+                    startDate = dayjs(Number(startTimestamp));
+                    startTimeEl.textContent = startDate.format('dddd, MMMM D, YYYY LT');
+                }
+            }
+
+            if (endTimeEl && startDate) { // Ensure startDate is valid before processing endTime
+                const endTimestamp = endTimeEl.dataset.timestamp;
+                if (endTimestamp && !isNaN(Number(endTimestamp))) {
+                    const endDate = dayjs(Number(endTimestamp));
+                    if (startDate.isSame(endDate, 'day')) {
+                        endTimeEl.textContent = endDate.format('LT'); // Only time
+                    } else {
+                        endTimeEl.textContent = endDate.format('dddd, MMMM D, YYYY LT'); // Full date and time
+                    }
+                }
+            }
+            
+            // Fallback for any other .local-datetime elements (if any were added elsewhere)
+            // This ensures they are still formatted if not specifically handled above.
+            document.querySelectorAll('.local-datetime:not(#event-start-time):not(#event-end-time)').forEach(el => {
                 const timestamp = el.dataset.timestamp;
                 if (timestamp && !isNaN(Number(timestamp))) {
                     el.textContent = dayjs(Number(timestamp)).format('dddd, MMMM D, YYYY LT');
