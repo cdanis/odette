@@ -144,8 +144,13 @@
             <input type="hidden" name="token" />  <%# TODO: very beginning of turning this into an edit/update form as well as an insert form %>
             <label for="name">Name:</label>
             <input type="text" id="name" name="name" required />
-            <label for="email">Email:</label>
+            
+            <label for="email">Primary Email:</label>
             <input type="email" id="email" name="email" required />
+            
+            <label for="additional_emails">Additional Emails (one per line or comma-separated):</label>
+            <textarea id="additional_emails" name="additional_emails" rows="3" placeholder="friend@example.com, colleague@work.com"></textarea>
+            
             <label for="party_size_single">Party Size:</label>
             <input type="number" id="party_size_single" name="party_size" value="1" min="1" required />
             <button type="submit">Add Attendee</button>
@@ -217,7 +222,23 @@
             <% attendees.forEach(attendee => { %>
               <tr>
                 <td><%= attendee.name %></td>
-                <td><%= attendee.email %></td>
+                <td>
+                  <%= attendee.email %>
+                  <% 
+                    let displayAdditionalEmails = [];
+                    if (attendee.additional_emails) {
+                      try {
+                        const parsed = JSON.parse(attendee.additional_emails);
+                        if (Array.isArray(parsed)) {
+                          displayAdditionalEmails = parsed.filter(e => typeof e === 'string' && e.trim() !== '');
+                        }
+                      } catch(e) { /* ignore parsing error for display */ }
+                    }
+                  %>
+                  <% if (displayAdditionalEmails.length > 0) { %>
+                    <br><small>(+ <%= displayAdditionalEmails.length %> more)</small>
+                  <% } %>
+                </td>
                 <td data-order="<%= attendee.party_size %>">
                   <% if (!attendee.rsvp) { %>
                     <form action="/admin/attendee/<%= attendee.id %>/update-party-size" method="POST" class="party-size-form" style="display: inline-flex; align-items: center;">

@@ -124,13 +124,14 @@ db.prepare(`CREATE TABLE IF NOT EXISTS attendees (
   id INTEGER PRIMARY KEY,
   event_id INTEGER NOT NULL,
   name TEXT NOT NULL,
-  email TEXT NOT NULL,
+  email TEXT NOT NULL, -- This is the primary email
   party_size INTEGER NOT NULL DEFAULT 1,
   token TEXT NOT NULL UNIQUE,
   is_sent INTEGER NOT NULL DEFAULT 0,
   rsvp TEXT DEFAULT NULL,
   responded_at INTEGER DEFAULT NULL,
   last_modified INTEGER,
+  additional_emails TEXT, -- Stores JSON array of additional emails
   FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
 )`).run(); 
 
@@ -144,6 +145,21 @@ try {
         console.log(`Column last_modified added successfully to attendees table.`);
     } catch (alterError) {
         console.error(`Failed to add last_modified column to attendees:`, alterError);
+    }
+}
+
+// Check and add additional_emails to attendees table
+try {
+    db.prepare(`SELECT additional_emails FROM attendees LIMIT 1`).get();
+} catch (error) {
+    console.log(`Attempting to add additional_emails column to attendees table...`);
+    try {
+        // Store as TEXT, ensure it's valid JSON array, default to NULL
+        // SQLite's json_type will return 'array' for valid JSON arrays, and 'null' for JSON null.
+        db.prepare(`ALTER TABLE attendees ADD COLUMN additional_emails TEXT CHECK(json_valid(additional_emails) AND json_type(additional_emails) IN ('array', 'null'))`).run();
+        console.log(`Column additional_emails added successfully to attendees table.`);
+    } catch (alterError) {
+        console.error(`Failed to add additional_emails column to attendees:`, alterError);
     }
 }
 
@@ -338,26 +354,64 @@ export async function notifyAdmin(att: any, rsvp: string, partySize: number) {
   }
 }
 
-interface ExistingAttendee { id: number; party_size: number; }
+interface ExistingAttendee { 
+    id: number; 
+    party_size: number; 
+    additional_emails?: string | null; // JSON string
+}
 
-export function upsertAttendee(event_id: number, name: string, email: string, party_size?: number) {
-  const stmtSelect = db.prepare('SELECT id, party_size FROM attendees WHERE event_id=? AND email=?');
-  const existing = stmtSelect.get(event_id, email) as ExistingAttendee | undefined;
+export function upsertAttendee(event_id: number, name: string, primaryEmail: string, party_size?: number, additionalEmailsArray?: string[]) {
+  const stmtSelect = db.prepare('SELECT id, party_size, additional_emails FROM attendees WHERE event_id=? AND email=?');
+  const existing = stmtSelect.get(event_id, primaryEmail.trim().toLowerCase()) as ExistingAttendee | undefined;
   const finalPartySize = party_size === undefined || isNaN(party_size) || party_size < 1 ? 1 : party_size;
   const now = Date.now();
 
+  // Prepare additional_emails JSON string
+  // Filter out empty strings, trim, ensure uniqueness, and exclude primaryEmail
+  const uniqueAdditionalEmails = additionalEmailsArray 
+    ? [...new Set(
+        additionalEmailsArray
+          .map(e => e.trim().toLowerCase())
+          .filter(e => e && e !== primaryEmail.trim().toLowerCase())
+      )] 
+    : [];
+  const additionalEmailsJson = uniqueAdditionalEmails.length > 0 ? JSON.stringify(uniqueAdditionalEmails) : null;
+
   if (existing) {
-    const rsvpStatus = db.prepare('SELECT rsvp FROM attendees WHERE id = ?').get(existing.id) as { rsvp: string | null } | undefined;
+    const attendeeId = existing.id;
+    const rsvpStatus = db.prepare('SELECT rsvp FROM attendees WHERE id = ?').get(attendeeId) as { rsvp: string | null } | undefined;
+    
+    let updateQuery = 'UPDATE attendees SET last_modified=?';
+    const updateParams: (number | string | null)[] = [now];
+
     if (rsvpStatus && rsvpStatus.rsvp === null) { // Only update party size if no RSVP yet
         if (party_size !== undefined && existing.party_size !== finalPartySize) {
-            db.prepare('UPDATE attendees SET party_size=?, last_modified=? WHERE id=?')
-              .run(finalPartySize, now, existing.id);
+            updateQuery += ', party_size=?';
+            updateParams.push(finalPartySize);
         }
     }
+    
+    // Update additional_emails if they differ
+    if (additionalEmailsJson !== existing.additional_emails) {
+        updateQuery += ', additional_emails=?';
+        updateParams.push(additionalEmailsJson);
+    }
+    
+    updateParams.push(attendeeId);
+
+    // Only run update if there's something to change besides last_modified
+    if (updateQuery !== 'UPDATE attendees SET last_modified=?') {
+        db.prepare(`${updateQuery} WHERE id=?`).run(...updateParams);
+    } else { 
+        // If only last_modified needs update (nothing else changed), still run an update for last_modified.
+        // This handles cases where the function is called but no actual data changed, but we still want to record the "touch".
+        db.prepare('UPDATE attendees SET last_modified=? WHERE id=?').run(now, attendeeId);
+    }
+
   } else {
     const token = generateToken();
-    db.prepare('INSERT INTO attendees (event_id,name,email,party_size,token,last_modified) VALUES (?,?,?,?,?,?)')
-      .run(event_id, name, email, finalPartySize, token, now);
+    db.prepare('INSERT INTO attendees (event_id,name,email,party_size,token,last_modified,additional_emails) VALUES (?,?,?,?,?,?,?)')
+      .run(event_id, name, primaryEmail.trim().toLowerCase(), finalPartySize, token, now, additionalEmailsJson);
   }
 }
 
@@ -376,7 +430,7 @@ type AttendeeView = {
   id:number; 
   event_id:number; 
   name:string; 
-  email:string; 
+  email:string; // Primary email
   party_size:number; 
   is_sent:number; 
   rsvp:string|null; 
@@ -390,18 +444,20 @@ type AttendeeView = {
   event_location_href?: string | null;
   event_date_end?: number | null;
   event_timezone?: string | null; 
+  additional_emails?: string | null; // JSON string
 };
 type EventAttendeeView = { 
   id:number; 
   event_id:number; 
   name:string; 
-  email:string; 
+  email:string; // Primary email
   party_size:number; 
   token: string; 
   is_sent:number; 
   rsvp:string|null; 
   responded_at:number|null; 
   last_modified: number | null;
+  additional_emails?: string | null; // JSON string
 };
 
 interface AttendeeStats {
@@ -487,7 +543,7 @@ app.get('/admin/:eventId', csrfProtection, (req, res) => {
     return;
   }
   const attendees = db.prepare(
-    'SELECT id, event_id, name, email, party_size, token, is_sent, rsvp, responded_at, last_modified FROM attendees WHERE event_id = ? ORDER BY name'
+    'SELECT id, event_id, name, email, party_size, token, is_sent, rsvp, responded_at, last_modified, additional_emails FROM attendees WHERE event_id = ? ORDER BY name'
   ).all(eventId) as EventAttendeeView[];
   const allEvents = db.prepare('SELECT id, title FROM events WHERE id != ? ORDER BY title').all(eventId) as {id: number, title: string}[];
   const attendeeStats = getEventAttendeeStats(eventId);
@@ -573,7 +629,18 @@ app.post('/admin/event/:eventId/update', upload.single('banner_image'), csrfProt
 app.post('/admin/attendee', csrfProtection, (req, res) => {
   const eventId = +req.body.event_id;
   const partySize = parseInt(req.body.party_size, 10);
-  upsertAttendee(eventId, req.body.name, req.body.email, isNaN(partySize) || partySize < 1 ? 1 : partySize);
+  const primaryEmail = req.body.email; // This is the 'Primary Email' field
+  const additionalEmailsRaw = req.body.additional_emails || ''; // New field from textarea
+  
+  let additionalEmailsList: string[] = [];
+  if (additionalEmailsRaw && typeof additionalEmailsRaw === 'string') {
+    additionalEmailsList = additionalEmailsRaw
+      .split(/[\n,]+/) // Split by newline or comma
+      .map(e => e.trim())
+      .filter(e => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)); // Basic email validation
+  }
+
+  upsertAttendee(eventId, req.body.name, primaryEmail, isNaN(partySize) || partySize < 1 ? 1 : partySize, additionalEmailsList);
   res.redirect(`/admin/${eventId}`);
 });
 
@@ -583,7 +650,8 @@ app.post('/admin/attendees/batch', csrfProtection, (req, res) => {
     const [name, email, partyStr] = line.split(',').map((s: string) => s.trim());
     if (name && email) {
       const party = parseInt(partyStr, 10);
-      upsertAttendee(eventId, name, email, isNaN(party) || party < 1 ? 1 : party);
+      // For batch, additional emails are not provided in CSV, so pass undefined or empty array
+      upsertAttendee(eventId, name, email, isNaN(party) || party < 1 ? 1 : party, []);
     }
   });
   res.redirect(`/admin/${eventId}`);
@@ -603,7 +671,8 @@ app.post('/admin/event/:eventId/attendees/parse-emails', csrfProtection, (req, r
       if (parsed.address) {
         const email = parsed.address;
         const name = parsed.name || email.substring(0, email.lastIndexOf('@')).replace(/[."']/g, ' ').trim();
-        upsertAttendee(eventId, name, email); 
+        // For parsed emails, additional emails are not provided, so pass undefined or empty array
+        upsertAttendee(eventId, name, email, 1, []); 
       }
     });
   } catch (error) {
@@ -616,17 +685,46 @@ app.post('/admin/event/:eventId/attendees/parse-emails', csrfProtection, (req, r
 app.post('/admin/attendees/copy', csrfProtection, (req, res) => {
   const fromEventId = +req.body.from_event;
   const toEventId = +req.body.to_event;
-  const rows = db.prepare('SELECT name,email,party_size FROM attendees WHERE event_id=?').all(fromEventId) as {name: string, email: string, party_size: number}[];
-  rows.forEach((r) => upsertAttendee(toEventId, r.name, r.email, r.party_size));
+  const rows = db.prepare('SELECT name, email, party_size, additional_emails FROM attendees WHERE event_id=?')
+                 .all(fromEventId) as {name: string, email: string, party_size: number, additional_emails: string | null}[];
+  
+  rows.forEach((r) => {
+    let additionalEmailsList: string[] = [];
+    if (r.additional_emails) {
+      try {
+        const parsedEmails = JSON.parse(r.additional_emails);
+        if (Array.isArray(parsedEmails)) {
+          additionalEmailsList = parsedEmails.filter(e => typeof e === 'string');
+        }
+      } catch (e) {
+        console.error(`Error parsing additional_emails JSON for attendee ${r.email} from event ${fromEventId}:`, e);
+      }
+    }
+    upsertAttendee(toEventId, r.name, r.email, r.party_size, additionalEmailsList);
+  });
   res.redirect(`/admin/${toEventId}`);
 });
 
-interface InviteeWithEventId extends Invitee { event_id: number; }
-interface Invitee { id: number; name: string; email: string; token: string; }
+interface Invitee { 
+  id: number; 
+  name: string; 
+  email: string; // Primary email
+  token: string; 
+}
+interface InviteeWithEventIdAndEmails extends Invitee { 
+  event_id: number; 
+  additional_emails: string | null; // JSON string
+}
+interface InviteeForBatch extends Invitee {
+  additional_emails: string | null; // JSON string
+}
+
 
 app.post('/admin/attendees/send/:attendeeId', csrfProtection, async (req, res) => {
   const attendeeId = +req.params.attendeeId;
-  const a = db.prepare('SELECT id, name, email, token, event_id FROM attendees WHERE id=?').get(attendeeId) as InviteeWithEventId | undefined;
+  const a = db.prepare('SELECT id, name, email, token, event_id, additional_emails FROM attendees WHERE id=?')
+              .get(attendeeId) as InviteeWithEventIdAndEmails | undefined;
+  
   if (a) {
     const event = db.prepare('SELECT * FROM events WHERE id = ?').get(a.event_id) as EventRecord | undefined;
     if (!event) {
@@ -634,8 +732,40 @@ app.post('/admin/attendees/send/:attendeeId', csrfProtection, async (req, res) =
         res.status(404).send('Error: Associated event not found.');
         return;
     }
-    await sendInvitation(a.name, a.email, a.token, event);
-    db.prepare('UPDATE attendees SET is_sent=1, last_modified=? WHERE id=?').run(Date.now(), attendeeId);
+
+    const allEmailAddresses: Set<string> = new Set();
+    if (a.email) allEmailAddresses.add(a.email.trim().toLowerCase());
+
+    if (a.additional_emails) {
+      try {
+        const parsedAdditional = JSON.parse(a.additional_emails);
+        if (Array.isArray(parsedAdditional)) {
+          parsedAdditional.forEach(email => {
+            if (typeof email === 'string' && email.trim()) {
+              allEmailAddresses.add(email.trim().toLowerCase());
+            }
+          });
+        }
+      } catch (e) {
+        console.error(`Error parsing additional_emails for attendee ${a.id}:`, e);
+      }
+    }
+
+    if (allEmailAddresses.size === 0) {
+        console.warn(`No valid email addresses found for attendee ID ${attendeeId}. Cannot send invite.`);
+        res.redirect(`/admin/${a.event_id}?error=${encodeURIComponent('No email addresses for attendee to send invite.')}`);
+        return;
+    }
+
+    let emailsSentCount = 0;
+    for (const emailAddress of allEmailAddresses) {
+      await sendInvitation(a.name, emailAddress, a.token, event);
+      emailsSentCount++;
+    }
+    
+    if (emailsSentCount > 0) {
+        db.prepare('UPDATE attendees SET is_sent=1, last_modified=? WHERE id=?').run(Date.now(), attendeeId);
+    }
     res.redirect(`/admin/${a.event_id}`);
   } else {
     res.status(404).send('Attendee not found');
@@ -653,10 +783,42 @@ app.post('/admin/events/:eventId/send-invites', csrfProtection, async (req, res)
     return;
   }
 
-  const pending = db.prepare('SELECT id,name,email,token FROM attendees WHERE event_id=? AND is_sent=0').all(eventId) as Invitee[];
+  const pending = db.prepare('SELECT id, name, email, token, additional_emails FROM attendees WHERE event_id=? AND is_sent=0')
+                    .all(eventId) as InviteeForBatch[];
+  
   for (const a of pending) {
-    await sendInvitation(a.name, a.email, a.token, event);
-    db.prepare('UPDATE attendees SET is_sent=1, last_modified=? WHERE id=?').run(now, a.id);
+    const allEmailAddresses: Set<string> = new Set();
+    if (a.email) allEmailAddresses.add(a.email.trim().toLowerCase());
+
+    if (a.additional_emails) {
+      try {
+        const parsedAdditional = JSON.parse(a.additional_emails);
+        if (Array.isArray(parsedAdditional)) {
+          parsedAdditional.forEach(email => {
+            if (typeof email === 'string' && email.trim()) {
+              allEmailAddresses.add(email.trim().toLowerCase());
+            }
+          });
+        }
+      } catch (e) {
+        console.error(`Error parsing additional_emails for attendee ${a.id} during batch send:`, e);
+      }
+    }
+    
+    if (allEmailAddresses.size === 0) {
+        console.warn(`No valid email addresses found for attendee ID ${a.id} during batch send. Skipping.`);
+        continue; // Skip this attendee
+    }
+
+    let emailsSentCount = 0;
+    for (const emailAddress of allEmailAddresses) {
+      await sendInvitation(a.name, emailAddress, a.token, event);
+      emailsSentCount++;
+    }
+
+    if (emailsSentCount > 0) {
+        db.prepare('UPDATE attendees SET is_sent=1, last_modified=? WHERE id=?').run(now, a.id);
+    }
   }
   res.redirect(`/admin/${eventId}`);
 });
