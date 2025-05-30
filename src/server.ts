@@ -303,7 +303,7 @@ export async function sendInvitation(name: string, email: string, token: string,
 
   if (SMTP_USER && SMTP_PASS) {
     try {
-      await transporter.sendMail({ from: SMTP_USER, to: email, subject, html });
+      await transporter.sendMail({ from: SMTP_USER, to: email, subject, html, text: htmlToPlainText(html) });
       console.log(`Invite successfully sent to ${email}`);
     } catch (error) {
       console.error(`Failed to send invite to ${email} for event "${event.title}". Error:`, error);
