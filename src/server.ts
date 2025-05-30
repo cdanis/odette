@@ -227,9 +227,18 @@ export async function sendInvitation(name: string, email: string, token: string,
   const link = `${APP_BASE_URL}/rsvp/${token}`;
   const html = `<p>Hi ${name},</p>\n<p>You are invited to ${eventTitle}.</p>\n<p>Please RSVP here: <a href=\"${link}\">${link}</a></p>`;
   const subject = `Please RSVP for ${eventTitle}`;
-  await console.log(`Sending invite to ${email}`, { from: SMTP_USER, to: email, subject, html });
+  console.log(`Preparing to send invite to ${email} for event "${eventTitle}"`);
   if (SMTP_USER && SMTP_PASS) {
-    await transporter.sendMail({ from: SMTP_USER, to: email, subject, html });
+    try {
+      await transporter.sendMail({ from: SMTP_USER, to: email, subject, html });
+      console.log(`Invite successfully sent to ${email}`);
+    } catch (error) {
+      console.error(`Failed to send invite to ${email} for event "${eventTitle}". Error:`, error);
+      // Depending on requirements, you might want to re-throw the error or handle it differently
+      // For now, we just log it and continue, as the calling function might not expect an error here.
+    }
+  } else {
+    console.log(`SMTP not configured. Mock sending invite to ${email}: Subject: ${subject}, Body: ${html}`);
   }
 }
 
