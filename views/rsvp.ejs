@@ -29,11 +29,9 @@
             <% if (attendee.event_banner_image_filename) { %>
                 <img src="/uploads/event-banners/<%= attendee.event_banner_image_filename %>" alt="<%= attendee.event_title %> Banner" class="event-banner">
             <% } %>
-            <div class="card-header">
-                <h1 class="card-header-title">
+                <h1 class="title">
                     <%= attendee.event_title %>
                 </h1>
-            </div>
             <div class="event-time">
                 <strong>When:</strong> 
                 <span id="event-start-time" class="local-datetime" data-timestamp="<%= attendee.event_date %>">

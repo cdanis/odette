@@ -6,15 +6,14 @@
 </head>
 <body>
   <div class="container">
-    <h1>Thanks for Your Response</h1>
+    <h1 class="title">Thanks for Your Response</h1>
     <% if (rsvp === 'yes') { %>
       <p>Awesome! We’re looking forward to seeing <% if (party_size > 1) { %> your party of <%= party_size %><% } else { %> you there<% } %>.</p>
     <% } else { %>
       <p>Sorry you can’t make it. We appreciate you letting us know.</p>
     <% } %>
     <p class="footer">If you need to change your response, just revisit 
-        <a href="<%= APP_BASE_URL %>/rsvp/<%= token %>">your unique link</a>
-        .</p>
+        <a href="<%= APP_BASE_URL %>/rsvp/<%= token %>">your unique link</a>.</p>
   </div>
 </body>
 </html>
