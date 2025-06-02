@@ -304,7 +304,7 @@
                           data-attendee-id="<%= attendee.id %>"
                           data-attendee-name="<%= attendee.name %>"
                           data-primary-email="<%= attendee.email %>"
-                          data-additional-emails="<%= additionalEmailsArray.join('\\n') %>">Edit Emails</button>
+                          data-additional-emails="<%= additionalEmailsArray.join('\n') %>">Edit Emails</button>
                 </td>
               </tr>
             <% }) %>
@@ -466,33 +466,36 @@
       const modalPrimaryEmailInput = document.getElementById('modalPrimaryEmail');
       const modalAdditionalEmailsTextarea = document.getElementById('modalAdditionalEmails');
 
-      document.querySelectorAll('.edit-emails-button').forEach(button => {
-        button.addEventListener('click', function() {
-          const attendeeId = this.dataset.attendeeId;
-          const primaryEmail = this.dataset.primaryEmail;
-          const additionalEmails = this.dataset.additionalEmails; // Already newline separated from EJS
-          const attendeeName = this.dataset.attendeeName;
+      // Use event delegation for edit buttons on the attendees table
+      $('#attendeesTable tbody').on('click', '.edit-emails-button', function() {
+          const attendeeId = $(this).data('attendee-id');
+          const primaryEmail = $(this).data('primary-email');
+          const additionalEmails = $(this).data('additional-emails'); // This is a string with newlines
+          const attendeeName = $(this).data('attendee-name');
 
           modalAttendeeNameSpan.textContent = attendeeName;
           modalAttendeeIdInput.value = attendeeId;
           modalPrimaryEmailInput.value = primaryEmail;
-          modalAdditionalEmailsTextarea.value = additionalEmails;
+          modalAdditionalEmailsTextarea.value = additionalEmails; // Textarea handles newline characters correctly
           
           editEmailsFormElement.action = `/admin/attendee/${attendeeId}/update-emails`;
           
-          editEmailsModalElement.classList.add('is-active');
-        });
+          if (editEmailsModalElement) { // Ensure element exists
+            editEmailsModalElement.classList.add('is-active');
+          }
       });
 
       function closeEmailModal() {
-        editEmailsModalElement.classList.remove('is-active');
+        if (editEmailsModalElement) { // Ensure element exists
+            editEmailsModalElement.classList.remove('is-active');
+        }
       }
 
       if(closeEditEmailsModalButtonTop) closeEditEmailsModalButtonTop.addEventListener('click', closeEmailModal);
       if(cancelEditEmailsModalButtonBottom) cancelEditEmailsModalButtonBottom.addEventListener('click', closeEmailModal);
       
       // Close modal if background is clicked (Bulma specific)
-      const modalBackground = editEmailsModalElement.querySelector('.modal-background');
+      const modalBackground = editEmailsModalElement ? editEmailsModalElement.querySelector('.modal-background') : null;
       if(modalBackground) modalBackground.addEventListener('click', closeEmailModal);
 
     });
