@@ -957,6 +957,41 @@ app.post('/admin/attendee/:attendeeId/update-emails', csrfProtection, async (req
   }
 });
 
+app.post('/admin/attendee/:attendeeId/delete', csrfProtection, async (req, res) => {
+    const attendeeId = +req.params.attendeeId;
+    let eventIdToRedirect: number | undefined;
+
+    try {
+        // First, get the event_id for redirection before deleting
+        const attendeeData = db.prepare('SELECT event_id FROM attendees WHERE id = ?').get(attendeeId) as { event_id: number } | undefined;
+        
+        if (!attendeeData) {
+            console.warn(`Attempt to delete non-existent attendee ID ${attendeeId} or attendee already deleted.`);
+            // If attendee doesn't exist, we can't know the event_id. Redirect to admin home.
+            // A query param in the URL might provide event_id if we want to enhance this.
+            return res.redirect(`/admin?error=${encodeURIComponent('Attendee not found or already deleted.')}`);
+        }
+        eventIdToRedirect = attendeeData.event_id;
+
+        const result = db.prepare('DELETE FROM attendees WHERE id = ?').run(attendeeId);
+
+        if (result.changes > 0) {
+            console.log(`Attendee ${attendeeId} deleted successfully.`);
+        } else {
+            // This case should ideally be covered by the initial check,
+            // but it's a safeguard if something changes between the select and delete.
+            console.warn(`No attendee found with ID ${attendeeId} to delete during delete operation.`);
+        }
+        res.redirect(`/admin/${eventIdToRedirect}`);
+
+    } catch (error: any) {
+        console.error(`Error deleting attendee ${attendeeId}:`, error);
+        // If eventIdToRedirect was fetched, use it for a more specific redirect.
+        const redirectUrl = eventIdToRedirect ? `/admin/${eventIdToRedirect}` : '/admin';
+        res.redirect(`${redirectUrl}?error=${encodeURIComponent('Failed to delete attendee. Check server logs.')}`);
+    }
+});
+
 
 app.get('/user/:id', (req, res) => { 
     res.send(`user ${req.params.id}`)

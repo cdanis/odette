@@ -305,6 +305,10 @@
                           data-attendee-name="<%= attendee.name %>"
                           data-primary-email="<%= attendee.email %>"
                           data-additional-emails="<%= additionalEmailsArray.join('\n') %>">Edit Details</button>
+                  <form action="/admin/attendee/<%= attendee.id %>/delete" method="POST" style="display: inline; margin-left: 5px;" class="delete-attendee-form">
+                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <button type="submit" class="action-button delete-button">Delete</button>
+                  </form>
                 </td>
               </tr>
             <% }) %>
@@ -505,6 +509,21 @@
       
       const modalBackground = editDetailsModalElement ? editDetailsModalElement.querySelector('.modal-background') : null;
       if(modalBackground) modalBackground.addEventListener('click', closeEditDetailsModal);
+
+      // Delete Attendee Confirmation
+      $('#attendeesTable tbody').on('submit', '.delete-attendee-form', function(event) {
+          event.preventDefault(); // Prevent direct submission
+          const form = this;
+          // Attempt to get the attendee's name from the first <td> in the row
+          const attendeeName = $(form).closest('tr').find('td:first').text().trim();
+          const confirmMessage = attendeeName ? 
+                                 `Are you sure you want to delete attendee "${attendeeName}"? This action cannot be undone.` :
+                                 `Are you sure you want to delete this attendee? This action cannot be undone.`;
+
+          if (window.confirm(confirmMessage)) {
+              form.submit(); // Proceed with submission if confirmed
+          }
+      });
 
     });
   </script>
