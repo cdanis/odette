@@ -290,7 +290,11 @@
                       <button type="submit" class="action-button">Send Invite</button>
                     </form>
                   <% } else { %>
-                    <span>Sent</span>
+                    <form action="/admin/attendees/send/<%= attendee.id %>" method="POST" style="display: inline;">
+                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <input type="hidden" name="resend" value="1">
+                      <button type="submit" class="action-button">Re-send Invite</button>
+                    </form>
                   <% } %>
                 </td>
               </tr>
