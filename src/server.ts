@@ -262,7 +262,7 @@ function htmlToPlainText(html: string | null | undefined): string {
 }
 
 
-export async function sendInvitation(name: string, email: string, token: string, event: EventRecord) {
+export async function sendInvitation(name: string, primaryEmail: string, ccEmails: string[], token: string, event: EventRecord) {
   const rsvpLink = `${APP_BASE_URL}/rsvp/${token}`;
   const icsLink = `${APP_BASE_URL}/ics/${token}`;
 
@@ -325,17 +325,26 @@ export async function sendInvitation(name: string, email: string, token: string,
   `;
 
   const subject = `Invitation: ${event.title}`;
-  console.log(`Preparing to send invite to ${email} for event "${event.title}" (Timezone for email: ${event.timezone || 'Server Default'})`);
+  const logRecipients = `To: ${primaryEmail}${ccEmails.length > 0 ? `, Cc: ${ccEmails.join(', ')}` : ''}`;
+  console.log(`Preparing to send invite ${logRecipients} for event "${event.title}" (Timezone for email: ${event.timezone || 'Server Default'})`);
 
   if (SMTP_USER && SMTP_PASS) {
     try {
-      await transporter.sendMail({ from: SMTP_USER, to: email, subject, html, text: htmlToPlainText(html) });
-      console.log(`Invite successfully sent to ${email}`);
+      await transporter.sendMail({ 
+        from: SMTP_USER, 
+        to: primaryEmail, 
+        cc: ccEmails.length > 0 ? ccEmails : undefined, 
+        subject, 
+        html, 
+        text: htmlToPlainText(html) 
+      });
+      console.log(`Invite successfully sent ${logRecipients}`);
     } catch (error) {
-      console.error(`Failed to send invite to ${email} for event "${event.title}". Error:`, error);
+      console.error(`Failed to send invite ${logRecipients} for event "${event.title}". Error:`, error);
+      throw error; // Re-throw to allow caller to handle
     }
   } else {
-    console.log(`SMTP not configured. Mock sending invite to ${email}: Subject: ${subject}, Body: ${html}`);
+    console.log(`SMTP not configured. Mock sending invite ${logRecipients}: Subject: ${subject}, Body: ${html}`);
   }
 }
 
@@ -705,19 +714,15 @@ app.post('/admin/attendees/copy', csrfProtection, (req, res) => {
   res.redirect(`/admin/${toEventId}`);
 });
 
-interface Invitee { 
+interface InviteeWithEventIdAndEmails { 
   id: number; 
   name: string; 
   email: string; // Primary email
   token: string; 
-}
-interface InviteeWithEventIdAndEmails extends Invitee { 
   event_id: number; 
   additional_emails: string | null; // JSON string
 }
-interface InviteeForBatch extends Invitee {
-  additional_emails: string | null; // JSON string
-}
+interface InviteeForBatch extends InviteeWithEventIdAndEmails {}
 
 
 app.post('/admin/attendees/send/:attendeeId', csrfProtection, async (req, res) => {
@@ -725,51 +730,52 @@ app.post('/admin/attendees/send/:attendeeId', csrfProtection, async (req, res) =
   const a = db.prepare('SELECT id, name, email, token, event_id, additional_emails FROM attendees WHERE id=?')
               .get(attendeeId) as InviteeWithEventIdAndEmails | undefined;
   
-  if (a) {
-    const event = db.prepare('SELECT * FROM events WHERE id = ?').get(a.event_id) as EventRecord | undefined;
-    if (!event) {
-        console.error(`Event not found for attendee ID ${attendeeId} with event_id ${a.event_id}`);
-        res.status(404).send('Error: Associated event not found.');
-        return;
-    }
-
-    const allEmailAddresses: Set<string> = new Set();
-    if (a.email) allEmailAddresses.add(a.email.trim().toLowerCase());
-
-    if (a.additional_emails) {
-      try {
-        const parsedAdditional = JSON.parse(a.additional_emails);
-        if (Array.isArray(parsedAdditional)) {
-          parsedAdditional.forEach(email => {
-            if (typeof email === 'string' && email.trim()) {
-              allEmailAddresses.add(email.trim().toLowerCase());
-            }
-          });
-        }
-      } catch (e) {
-        console.error(`Error parsing additional_emails for attendee ${a.id}:`, e);
-      }
-    }
-
-    if (allEmailAddresses.size === 0) {
-        console.warn(`No valid email addresses found for attendee ID ${attendeeId}. Cannot send invite.`);
-        res.redirect(`/admin/${a.event_id}?error=${encodeURIComponent('No email addresses for attendee to send invite.')}`);
-        return;
-    }
-
-    let emailsSentCount = 0;
-    for (const emailAddress of allEmailAddresses) {
-      await sendInvitation(a.name, emailAddress, a.token, event);
-      emailsSentCount++;
-    }
-    
-    if (emailsSentCount > 0) {
-        db.prepare('UPDATE attendees SET is_sent=1, last_modified=? WHERE id=?').run(Date.now(), attendeeId);
-    }
-    res.redirect(`/admin/${a.event_id}`);
-  } else {
+  if (!a) {
     res.status(404).send('Attendee not found');
+    return;
   }
+
+  const event = db.prepare('SELECT * FROM events WHERE id = ?').get(a.event_id) as EventRecord | undefined;
+  if (!event) {
+      console.error(`Event not found for attendee ID ${attendeeId} with event_id ${a.event_id}`);
+      res.status(404).send('Error: Associated event not found.');
+      return;
+  }
+
+  const primaryEmail = a.email?.trim().toLowerCase();
+  if (!primaryEmail) {
+      console.warn(`Primary email missing for attendee ID ${attendeeId}. Cannot send invite.`);
+      res.redirect(`/admin/${a.event_id}?error=${encodeURIComponent('Primary email missing for attendee to send invite.')}`);
+      return;
+  }
+
+  let ccEmails: string[] = [];
+  if (a.additional_emails) {
+    try {
+      const parsedAdditional = JSON.parse(a.additional_emails);
+      if (Array.isArray(parsedAdditional)) {
+        ccEmails = parsedAdditional
+          .map(e => String(e).trim().toLowerCase())
+          .filter(e => e && e !== primaryEmail); // Ensure they are valid strings and not the primary
+      }
+    } catch (e) {
+      console.error(`Error parsing additional_emails for attendee ${a.id}:`, e);
+      // Continue with primary email even if parsing additional fails
+    }
+  }
+
+  try {
+    await sendInvitation(a.name, primaryEmail, ccEmails, a.token, event);
+    db.prepare('UPDATE attendees SET is_sent=1, last_modified=? WHERE id=?').run(Date.now(), attendeeId);
+  } catch (error) {
+    // Error is already logged by sendInvitation
+    // Optionally, add a specific error message to the redirect
+    const errorMessage = encodeURIComponent('Failed to send invitation. Check server logs.');
+    res.redirect(`/admin/${a.event_id}?error=${errorMessage}`);
+    return;
+  }
+  
+  res.redirect(`/admin/${a.event_id}`);
 });
 
 app.post('/admin/events/:eventId/send-invites', csrfProtection, async (req, res) => {
@@ -783,44 +789,48 @@ app.post('/admin/events/:eventId/send-invites', csrfProtection, async (req, res)
     return;
   }
 
-  const pending = db.prepare('SELECT id, name, email, token, additional_emails FROM attendees WHERE event_id=? AND is_sent=0')
+  const pending = db.prepare('SELECT id, name, email, token, additional_emails, event_id FROM attendees WHERE event_id=? AND is_sent=0')
                     .all(eventId) as InviteeForBatch[];
   
+  let overallSuccess = true;
   for (const a of pending) {
-    const allEmailAddresses: Set<string> = new Set();
-    if (a.email) allEmailAddresses.add(a.email.trim().toLowerCase());
+    const primaryEmail = a.email?.trim().toLowerCase();
+    if (!primaryEmail) {
+        console.warn(`Primary email missing for attendee ID ${a.id} during batch send. Skipping.`);
+        continue; 
+    }
 
+    let ccEmails: string[] = [];
     if (a.additional_emails) {
       try {
         const parsedAdditional = JSON.parse(a.additional_emails);
         if (Array.isArray(parsedAdditional)) {
-          parsedAdditional.forEach(email => {
-            if (typeof email === 'string' && email.trim()) {
-              allEmailAddresses.add(email.trim().toLowerCase());
-            }
-          });
+          ccEmails = parsedAdditional
+            .map(e => String(e).trim().toLowerCase())
+            .filter(e => e && e !== primaryEmail);
         }
       } catch (e) {
         console.error(`Error parsing additional_emails for attendee ${a.id} during batch send:`, e);
       }
     }
     
-    if (allEmailAddresses.size === 0) {
-        console.warn(`No valid email addresses found for attendee ID ${a.id} during batch send. Skipping.`);
-        continue; // Skip this attendee
-    }
-
-    let emailsSentCount = 0;
-    for (const emailAddress of allEmailAddresses) {
-      await sendInvitation(a.name, emailAddress, a.token, event);
-      emailsSentCount++;
-    }
-
-    if (emailsSentCount > 0) {
-        db.prepare('UPDATE attendees SET is_sent=1, last_modified=? WHERE id=?').run(now, a.id);
+    try {
+      await sendInvitation(a.name, primaryEmail, ccEmails, a.token, event);
+      db.prepare('UPDATE attendees SET is_sent=1, last_modified=? WHERE id=?').run(now, a.id);
+    } catch (sendError) {
+      // Error is logged by sendInvitation. Mark overall success as false.
+      overallSuccess = false;
+      console.error(`Failed to send batch invite for attendee ${a.id} (To: ${primaryEmail}, CC: ${ccEmails.join(', ')}). Continuing with others.`);
+      // Continue to next attendee
     }
   }
-  res.redirect(`/admin/${eventId}`);
+
+  if (!overallSuccess) {
+      const errorMessage = encodeURIComponent('Some invitations could not be sent. Please check server logs for details.');
+      res.redirect(`/admin/${eventId}?error=${errorMessage}`);
+  } else {
+      res.redirect(`/admin/${eventId}`);
+  }
 });
 
 app.post('/admin/attendee/:attendeeId/update-party-size', csrfProtection, (req, res) => {
