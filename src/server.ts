@@ -890,52 +890,70 @@ app.post('/admin/attendee/:attendeeId/update-party-size', csrfProtection, (req, 
 
 app.post('/admin/attendee/:attendeeId/update-emails', csrfProtection, async (req, res) => {
   const attendeeId = +req.params.attendeeId;
-  const { primaryEmail: newPrimaryEmailRaw, additionalEmails: additionalEmailsRaw } = req.body;
+  const { name: newNameRaw, primaryEmail: newPrimaryEmailRaw, additionalEmails: additionalEmailsRaw } = req.body;
   const now = Date.now();
 
+  const newName = (newNameRaw || '').toString().trim();
   const newPrimaryEmail = (newPrimaryEmailRaw || '').toString().trim().toLowerCase();
 
-  if (!newPrimaryEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newPrimaryEmail)) {
-    const eventIdFromDb = db.prepare('SELECT event_id FROM attendees WHERE id = ?').get(attendeeId) as {event_id: number} | undefined;
-    return res.redirect(`/admin/${eventIdFromDb?.event_id || ''}?error=${encodeURIComponent('Invalid or missing primary email format.')}`);
-  }
-  
-  let newAdditionalEmailsList: string[] = [];
-  if (additionalEmailsRaw && typeof additionalEmailsRaw === 'string') {
-    newAdditionalEmailsList = additionalEmailsRaw
-      .split(/[\n\r]+/) 
-      .map(e => e.trim().toLowerCase())
-      .filter(e => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e !== newPrimaryEmail); 
-  }
-  const newAdditionalEmailsJson = newAdditionalEmailsList.length > 0 ? JSON.stringify([...new Set(newAdditionalEmailsList)]) : null;
-
-  const transaction = db.transaction(() => {
-    const attendee = db.prepare('SELECT event_id, email FROM attendees WHERE id = ?').get(attendeeId) as { event_id: number; email: string } | undefined;
-    if (!attendee) {
-      throw new Error('Attendee not found.');
-    }
-
-    if (newPrimaryEmail !== attendee.email) {
-      const conflictingAttendee = db.prepare('SELECT id FROM attendees WHERE event_id = ? AND email = ? AND id != ?')
-                                  .get(attendee.event_id, newPrimaryEmail, attendeeId);
-      if (conflictingAttendee) {
-        throw new Error('This primary email is already in use by another attendee for this event.');
-      }
-    }
-
-    db.prepare('UPDATE attendees SET email = ?, additional_emails = ?, last_modified = ? WHERE id = ?')
-      .run(newPrimaryEmail, newAdditionalEmailsJson, now, attendeeId);
-    
-    return attendee.event_id;
-  });
-
+  let eventIdForRedirect: number | undefined;
   try {
-    const eventId = transaction();
-    res.redirect(`/admin/${eventId}`);
+    const attendeeForEventId = db.prepare('SELECT event_id FROM attendees WHERE id = ?').get(attendeeId) as {event_id: number} | undefined;
+    if (!attendeeForEventId) {
+        // This case should ideally be caught by the transaction's attendee check, but good for early exit.
+        console.error(`Attendee with ID ${attendeeId} not found for redirect.`);
+        return res.status(404).send('Attendee not found.');
+    }
+    eventIdForRedirect = attendeeForEventId.event_id;
+
+    if (!newName) {
+        return res.redirect(`/admin/${eventIdForRedirect}?error=${encodeURIComponent('Name cannot be empty.')}`);
+    }
+    if (!newPrimaryEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newPrimaryEmail)) {
+        return res.redirect(`/admin/${eventIdForRedirect}?error=${encodeURIComponent('Invalid or missing primary email format.')}`);
+    }
+  
+    let newAdditionalEmailsList: string[] = [];
+    if (additionalEmailsRaw && typeof additionalEmailsRaw === 'string') {
+        newAdditionalEmailsList = additionalEmailsRaw
+        .split(/[\n\r]+/) 
+        .map(e => e.trim().toLowerCase())
+        .filter(e => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e !== newPrimaryEmail); 
+    }
+    const newAdditionalEmailsJson = newAdditionalEmailsList.length > 0 ? JSON.stringify([...new Set(newAdditionalEmailsList)]) : null;
+
+    const transaction = db.transaction(() => {
+        const attendee = db.prepare('SELECT event_id, email FROM attendees WHERE id = ?').get(attendeeId) as { event_id: number; email: string } | undefined;
+        if (!attendee) {
+        throw new Error('Attendee not found.');
+        }
+        eventIdForRedirect = attendee.event_id; // Ensure eventIdForRedirect is set from within transaction too
+
+        if (newPrimaryEmail !== attendee.email) {
+        const conflictingAttendee = db.prepare('SELECT id FROM attendees WHERE event_id = ? AND email = ? AND id != ?')
+                                    .get(attendee.event_id, newPrimaryEmail, attendeeId);
+        if (conflictingAttendee) {
+            throw new Error('This primary email is already in use by another attendee for this event.');
+        }
+        }
+
+        db.prepare('UPDATE attendees SET name = ?, email = ?, additional_emails = ?, last_modified = ? WHERE id = ?')
+        .run(newName, newPrimaryEmail, newAdditionalEmailsJson, now, attendeeId);
+        
+        return attendee.event_id;
+    });
+
+    const finalEventId = transaction();
+    res.redirect(`/admin/${finalEventId}`);
+
   } catch (error: any) {
-    console.error('Error updating emails:', error.message);
-    const eventIdFromDbOnError = db.prepare('SELECT event_id FROM attendees WHERE id = ?').get(attendeeId) as {event_id: number} | undefined;
-    res.redirect(`/admin/${eventIdFromDbOnError?.event_id || ''}?error=${encodeURIComponent(error.message || 'Failed to update emails.')}`);
+    console.error('Error updating attendee details:', error.message);
+    // If eventIdForRedirect was fetched before transaction error, use it. Otherwise, try to fetch again or use a generic redirect.
+    if (!eventIdForRedirect) {
+        const attendeeForEventIdOnError = db.prepare('SELECT event_id FROM attendees WHERE id = ?').get(attendeeId) as {event_id: number} | undefined;
+        eventIdForRedirect = attendeeForEventIdOnError?.event_id;
+    }
+    res.redirect(`/admin/${eventIdForRedirect || ''}?error=${encodeURIComponent(error.message || 'Failed to update attendee details.')}`);
   }
 });
 

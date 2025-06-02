@@ -304,7 +304,7 @@
                           data-attendee-id="<%= attendee.id %>"
                           data-attendee-name="<%= attendee.name %>"
                           data-primary-email="<%= attendee.email %>"
-                          data-additional-emails="<%= additionalEmailsArray.join('\n') %>">Edit Emails</button>
+                          data-additional-emails="<%= additionalEmailsArray.join('\n') %>">Edit Details</button>
                 </td>
               </tr>
             <% }) %>
@@ -316,12 +316,12 @@
     </div>
   </div>
 
-  <!-- Edit Emails Modal -->
+  <!-- Edit Details Modal -->
   <div id="editEmailsModal" class="modal"> <!-- Bulma: add 'is-active' to show -->
     <div class="modal-background"></div>
     <div class="modal-card">
       <header class="modal-card-head">
-        <p class="modal-card-title">Edit Emails for <span id="modalAttendeeName"></span></p>
+        <p class="modal-card-title">Edit Details for <span id="modalAttendeeTitleName"></span></p>
         <button class="delete" aria-label="close" id="closeEditEmailsModalTop"></button>
       </header>
       <section class="modal-card-body">
@@ -329,6 +329,13 @@
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" id="modalAttendeeId" name="attendeeId">
           
+          <div class="field">
+            <label class="label" for="modalAttendeeNameInput">Name:</label>
+            <div class="control">
+              <input class="input" type="text" id="modalAttendeeNameInput" name="name" required>
+            </div>
+          </div>
+
           <div class="field">
             <label class="label" for="modalPrimaryEmail">Primary Email:</label>
             <div class="control">
@@ -456,47 +463,48 @@
           }
       }
 
-      // Edit Emails Modal Logic
-      const editEmailsModalElement = document.getElementById('editEmailsModal');
-      const closeEditEmailsModalButtonTop = document.getElementById('closeEditEmailsModalTop');
-      const cancelEditEmailsModalButtonBottom = document.getElementById('cancelEditEmailsModalBottom');
-      const editEmailsFormElement = document.getElementById('editEmailsForm');
-      const modalAttendeeNameSpan = document.getElementById('modalAttendeeName');
+      // Edit Details Modal Logic
+      const editDetailsModalElement = document.getElementById('editEmailsModal'); // Keep ID for now, or rename if preferred
+      const closeEditDetailsModalButtonTop = document.getElementById('closeEditEmailsModalTop');
+      const cancelEditDetailsModalButtonBottom = document.getElementById('cancelEditEmailsModalBottom');
+      const editDetailsFormElement = document.getElementById('editEmailsForm');
+      const modalAttendeeTitleNameSpan = document.getElementById('modalAttendeeTitleName');
       const modalAttendeeIdInput = document.getElementById('modalAttendeeId');
+      const modalAttendeeNameInput = document.getElementById('modalAttendeeNameInput'); // New input for name
       const modalPrimaryEmailInput = document.getElementById('modalPrimaryEmail');
       const modalAdditionalEmailsTextarea = document.getElementById('modalAdditionalEmails');
 
       // Use event delegation for edit buttons on the attendees table
       $('#attendeesTable tbody').on('click', '.edit-emails-button', function() {
           const attendeeId = $(this).data('attendee-id');
-          const primaryEmail = $(this).data('primary-email');
-          const additionalEmails = $(this).data('additional-emails'); // This is a string with newlines
           const attendeeName = $(this).data('attendee-name');
+          const primaryEmail = $(this).data('primary-email');
+          const additionalEmails = $(this).data('additional-emails'); 
 
-          modalAttendeeNameSpan.textContent = attendeeName;
+          modalAttendeeTitleNameSpan.textContent = attendeeName; // For the modal title
           modalAttendeeIdInput.value = attendeeId;
+          modalAttendeeNameInput.value = attendeeName; // Populate the name input field
           modalPrimaryEmailInput.value = primaryEmail;
-          modalAdditionalEmailsTextarea.value = additionalEmails; // Textarea handles newline characters correctly
+          modalAdditionalEmailsTextarea.value = additionalEmails;
           
-          editEmailsFormElement.action = `/admin/attendee/${attendeeId}/update-emails`;
+          editDetailsFormElement.action = `/admin/attendee/${attendeeId}/update-emails`; // Route can remain for now
           
-          if (editEmailsModalElement) { // Ensure element exists
-            editEmailsModalElement.classList.add('is-active');
+          if (editDetailsModalElement) { 
+            editDetailsModalElement.classList.add('is-active');
           }
       });
 
-      function closeEmailModal() {
-        if (editEmailsModalElement) { // Ensure element exists
-            editEmailsModalElement.classList.remove('is-active');
+      function closeEditDetailsModal() {
+        if (editDetailsModalElement) { 
+            editDetailsModalElement.classList.remove('is-active');
         }
       }
 
-      if(closeEditEmailsModalButtonTop) closeEditEmailsModalButtonTop.addEventListener('click', closeEmailModal);
-      if(cancelEditEmailsModalButtonBottom) cancelEditEmailsModalButtonBottom.addEventListener('click', closeEmailModal);
+      if(closeEditDetailsModalButtonTop) closeEditDetailsModalButtonTop.addEventListener('click', closeEditDetailsModal);
+      if(cancelEditDetailsModalButtonBottom) cancelEditDetailsModalButtonBottom.addEventListener('click', closeEditDetailsModal);
       
-      // Close modal if background is clicked (Bulma specific)
-      const modalBackground = editEmailsModalElement ? editEmailsModalElement.querySelector('.modal-background') : null;
-      if(modalBackground) modalBackground.addEventListener('click', closeEmailModal);
+      const modalBackground = editDetailsModalElement ? editDetailsModalElement.querySelector('.modal-background') : null;
+      if(modalBackground) modalBackground.addEventListener('click', closeEditDetailsModal);
 
     });
   </script>
