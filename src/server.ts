@@ -888,6 +888,57 @@ app.post('/admin/attendee/:attendeeId/update-party-size', csrfProtection, (req, 
   res.redirect(`/admin/${attendeeInfo.event_id}`);
 });
 
+app.post('/admin/attendee/:attendeeId/update-emails', csrfProtection, async (req, res) => {
+  const attendeeId = +req.params.attendeeId;
+  const { primaryEmail: newPrimaryEmailRaw, additionalEmails: additionalEmailsRaw } = req.body;
+  const now = Date.now();
+
+  const newPrimaryEmail = (newPrimaryEmailRaw || '').toString().trim().toLowerCase();
+
+  if (!newPrimaryEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newPrimaryEmail)) {
+    const eventIdFromDb = db.prepare('SELECT event_id FROM attendees WHERE id = ?').get(attendeeId) as {event_id: number} | undefined;
+    return res.redirect(`/admin/${eventIdFromDb?.event_id || ''}?error=${encodeURIComponent('Invalid or missing primary email format.')}`);
+  }
+  
+  let newAdditionalEmailsList: string[] = [];
+  if (additionalEmailsRaw && typeof additionalEmailsRaw === 'string') {
+    newAdditionalEmailsList = additionalEmailsRaw
+      .split(/[\n\r]+/) 
+      .map(e => e.trim().toLowerCase())
+      .filter(e => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e !== newPrimaryEmail); 
+  }
+  const newAdditionalEmailsJson = newAdditionalEmailsList.length > 0 ? JSON.stringify([...new Set(newAdditionalEmailsList)]) : null;
+
+  const transaction = db.transaction(() => {
+    const attendee = db.prepare('SELECT event_id, email FROM attendees WHERE id = ?').get(attendeeId) as { event_id: number; email: string } | undefined;
+    if (!attendee) {
+      throw new Error('Attendee not found.');
+    }
+
+    if (newPrimaryEmail !== attendee.email) {
+      const conflictingAttendee = db.prepare('SELECT id FROM attendees WHERE event_id = ? AND email = ? AND id != ?')
+                                  .get(attendee.event_id, newPrimaryEmail, attendeeId);
+      if (conflictingAttendee) {
+        throw new Error('This primary email is already in use by another attendee for this event.');
+      }
+    }
+
+    db.prepare('UPDATE attendees SET email = ?, additional_emails = ?, last_modified = ? WHERE id = ?')
+      .run(newPrimaryEmail, newAdditionalEmailsJson, now, attendeeId);
+    
+    return attendee.event_id;
+  });
+
+  try {
+    const eventId = transaction();
+    res.redirect(`/admin/${eventId}`);
+  } catch (error: any) {
+    console.error('Error updating emails:', error.message);
+    const eventIdFromDbOnError = db.prepare('SELECT event_id FROM attendees WHERE id = ?').get(attendeeId) as {event_id: number} | undefined;
+    res.redirect(`/admin/${eventIdFromDbOnError?.event_id || ''}?error=${encodeURIComponent(error.message || 'Failed to update emails.')}`);
+  }
+});
+
 
 app.get('/user/:id', (req, res) => { 
     res.send(`user ${req.params.id}`)

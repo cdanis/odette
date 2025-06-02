@@ -13,6 +13,10 @@
       margin-bottom: 10px;
       border: 1px solid #ddd;
     }
+    /* Styles for the modal - Bulma should handle most of this */
+    /* .modal { display: none; } /* Hidden by default, shown by JS */
+    /* .modal.is-active { display: flex; } */ /* Bulma's way to show modal */
+    .email-list small { display: block; margin-left: 10px; color: #555; }
   </style>
 </head>
 <body>
@@ -209,7 +213,7 @@
           <thead>
             <tr>
               <th>Name</th>
-              <th>Email</th>
+              <th>Email(s)</th>
               <th>Party Size</th>
               <th>Invite Sent?</th>
               <th>RSVP Status</th>
@@ -220,23 +224,23 @@
           </thead>
           <tbody>
             <% attendees.forEach(attendee => { %>
+              <% 
+                let additionalEmailsArray = [];
+                if (attendee.additional_emails) {
+                  try {
+                    const parsed = JSON.parse(attendee.additional_emails);
+                    if (Array.isArray(parsed)) {
+                      additionalEmailsArray = parsed.filter(e => typeof e === 'string' && e.trim() !== '');
+                    }
+                  } catch(e) { /* ignore parsing error for data attribute */ }
+                }
+              %>
               <tr>
                 <td><%= attendee.name %></td>
-                <td>
-                  <%= attendee.email %>
-                  <% 
-                    let displayAdditionalEmails = [];
-                    if (attendee.additional_emails) {
-                      try {
-                        const parsed = JSON.parse(attendee.additional_emails);
-                        if (Array.isArray(parsed)) {
-                          displayAdditionalEmails = parsed.filter(e => typeof e === 'string' && e.trim() !== '');
-                        }
-                      } catch(e) { /* ignore parsing error for display */ }
-                    }
-                  %>
-                  <% if (displayAdditionalEmails.length > 0) { %>
-                    <br><small>(+ <%= displayAdditionalEmails.length %> more)</small>
+                <td class="email-list">
+                  <strong><%= attendee.email %></strong> <!-- Primary -->
+                  <% if (additionalEmailsArray.length > 0) { %>
+                    <% additionalEmailsArray.forEach(addEmail => { %><small><%= addEmail %></small><% }); %>
                   <% } %>
                 </td>
                 <td data-order="<%= attendee.party_size %>">
@@ -285,17 +289,22 @@
                 </td>
                 <td>
                   <% if (!attendee.is_sent) { %>
-                    <form action="/admin/attendees/send/<%= attendee.id %>" method="POST" style="display: inline;">
+                    <form action="/admin/attendees/send/<%= attendee.id %>" method="POST" style="display: inline; margin-right: 5px;">
                       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                       <button type="submit" class="action-button">Send Invite</button>
                     </form>
                   <% } else { %>
-                    <form action="/admin/attendees/send/<%= attendee.id %>" method="POST" style="display: inline;">
+                    <form action="/admin/attendees/send/<%= attendee.id %>" method="POST" style="display: inline; margin-right: 5px;">
                       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                       <input type="hidden" name="resend" value="1">
                       <button type="submit" class="action-button">Re-send Invite</button>
                     </form>
                   <% } %>
+                  <button type="button" class="action-button edit-emails-button"
+                          data-attendee-id="<%= attendee.id %>"
+                          data-attendee-name="<%= attendee.name %>"
+                          data-primary-email="<%= attendee.email %>"
+                          data-additional-emails="<%= additionalEmailsArray.join('\\n') %>">Edit Emails</button>
                 </td>
               </tr>
             <% }) %>
@@ -306,6 +315,42 @@
       <% } %>
     </div>
   </div>
+
+  <!-- Edit Emails Modal -->
+  <div id="editEmailsModal" class="modal"> <!-- Bulma: add 'is-active' to show -->
+    <div class="modal-background"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">Edit Emails for <span id="modalAttendeeName"></span></p>
+        <button class="delete" aria-label="close" id="closeEditEmailsModalTop"></button>
+      </header>
+      <section class="modal-card-body">
+        <form id="editEmailsForm" method="POST"> <!-- Action will be set by JS -->
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" id="modalAttendeeId" name="attendeeId">
+          
+          <div class="field">
+            <label class="label" for="modalPrimaryEmail">Primary Email:</label>
+            <div class="control">
+              <input class="input" type="email" id="modalPrimaryEmail" name="primaryEmail" required>
+            </div>
+          </div>
+          
+          <div class="field">
+            <label class="label" for="modalAdditionalEmails">Additional Emails (one per line):</label>
+            <div class="control">
+              <textarea class="textarea" id="modalAdditionalEmails" name="additionalEmails" rows="4"></textarea>
+            </div>
+          </div>
+        </form>
+      </section>
+      <footer class="modal-card-foot">
+        <button type="submit" class="button is-success" form="editEmailsForm">Save changes</button>
+        <button type="button" class="button" id="cancelEditEmailsModalBottom">Cancel</button>
+      </footer>
+    </div>
+  </div>
+
 
   <!-- jQuery -->
   <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
@@ -403,11 +448,53 @@
           const errorP = document.createElement('p');
           errorP.style.color = 'red';
           errorP.textContent = decodeURIComponent(error);
-          const formSectionH2 = document.querySelector('#editEventForm h2'); 
-          if (formSectionH2 && formSectionH2.parentNode) {
-            formSectionH2.parentNode.insertBefore(errorP, formSectionH2.nextSibling);
+          // Try to insert error message after the H2 of the relevant form section
+          // This is a bit generic; might need adjustment if multiple forms could show errors
+          const activeFormH2 = document.querySelector('.form-section h2') || document.querySelector('.form-section h3');
+          if (activeFormH2 && activeFormH2.parentNode) {
+            activeFormH2.parentNode.insertBefore(errorP, activeFormH2.nextSibling);
           }
       }
+
+      // Edit Emails Modal Logic
+      const editEmailsModalElement = document.getElementById('editEmailsModal');
+      const closeEditEmailsModalButtonTop = document.getElementById('closeEditEmailsModalTop');
+      const cancelEditEmailsModalButtonBottom = document.getElementById('cancelEditEmailsModalBottom');
+      const editEmailsFormElement = document.getElementById('editEmailsForm');
+      const modalAttendeeNameSpan = document.getElementById('modalAttendeeName');
+      const modalAttendeeIdInput = document.getElementById('modalAttendeeId');
+      const modalPrimaryEmailInput = document.getElementById('modalPrimaryEmail');
+      const modalAdditionalEmailsTextarea = document.getElementById('modalAdditionalEmails');
+
+      document.querySelectorAll('.edit-emails-button').forEach(button => {
+        button.addEventListener('click', function() {
+          const attendeeId = this.dataset.attendeeId;
+          const primaryEmail = this.dataset.primaryEmail;
+          const additionalEmails = this.dataset.additionalEmails; // Already newline separated from EJS
+          const attendeeName = this.dataset.attendeeName;
+
+          modalAttendeeNameSpan.textContent = attendeeName;
+          modalAttendeeIdInput.value = attendeeId;
+          modalPrimaryEmailInput.value = primaryEmail;
+          modalAdditionalEmailsTextarea.value = additionalEmails;
+          
+          editEmailsFormElement.action = `/admin/attendee/${attendeeId}/update-emails`;
+          
+          editEmailsModalElement.classList.add('is-active');
+        });
+      });
+
+      function closeEmailModal() {
+        editEmailsModalElement.classList.remove('is-active');
+      }
+
+      if(closeEditEmailsModalButtonTop) closeEditEmailsModalButtonTop.addEventListener('click', closeEmailModal);
+      if(cancelEditEmailsModalButtonBottom) cancelEditEmailsModalButtonBottom.addEventListener('click', closeEmailModal);
+      
+      // Close modal if background is clicked (Bulma specific)
+      const modalBackground = editEmailsModalElement.querySelector('.modal-background');
+      if(modalBackground) modalBackground.addEventListener('click', closeEmailModal);
+
     });
   </script>
 </body>
