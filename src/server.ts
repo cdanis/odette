@@ -371,20 +371,23 @@ interface ExistingAttendee {
 
 export function upsertAttendee(event_id: number, name: string, primaryEmail: string, party_size?: number, additionalEmailsArray?: string[]) {
   const stmtSelect = db.prepare('SELECT id, party_size, additional_emails FROM attendees WHERE event_id=? AND email=?');
-  const existing = stmtSelect.get(event_id, primaryEmail.trim().toLowerCase()) as ExistingAttendee | undefined;
+  const trimmedPrimaryEmail = primaryEmail.trim().toLowerCase();
+  const existing = stmtSelect.get(event_id, trimmedPrimaryEmail) as ExistingAttendee | undefined;
   const finalPartySize = party_size === undefined || isNaN(party_size) || party_size < 1 ? 1 : party_size;
   const now = Date.now();
 
-  // Prepare additional_emails JSON string
-  // Filter out empty strings, trim, ensure uniqueness, and exclude primaryEmail
-  const uniqueAdditionalEmails = additionalEmailsArray 
-    ? [...new Set(
+  // Prepare additional_emails JSON string only if additionalEmailsArray is provided.
+  // If additionalEmailsArray is undefined, additionalEmailsJson will also be undefined,
+  // signaling that the additional_emails field should not be modified for existing attendees.
+  let additionalEmailsJson: string | null | undefined = undefined;
+  if (additionalEmailsArray !== undefined) {
+    const uniqueAdditionalEmails = [...new Set(
         additionalEmailsArray
           .map(e => e.trim().toLowerCase())
-          .filter(e => e && e !== primaryEmail.trim().toLowerCase())
-      )] 
-    : [];
-  const additionalEmailsJson = uniqueAdditionalEmails.length > 0 ? JSON.stringify(uniqueAdditionalEmails) : null;
+          .filter(e => e && e !== trimmedPrimaryEmail)
+      )];
+    additionalEmailsJson = uniqueAdditionalEmails.length > 0 ? JSON.stringify(uniqueAdditionalEmails) : null;
+  }
 
   if (existing) {
     const attendeeId = existing.id;
@@ -400,10 +403,13 @@ export function upsertAttendee(event_id: number, name: string, primaryEmail: str
         }
     }
     
-    // Update additional_emails if they differ
-    if (additionalEmailsJson !== existing.additional_emails) {
-        updateQuery += ', additional_emails=?';
-        updateParams.push(additionalEmailsJson);
+    // Only update additional_emails if additionalEmailsArray was provided (making additionalEmailsJson defined)
+    // and the new value is different from the existing one.
+    if (additionalEmailsJson !== undefined) {
+        if (additionalEmailsJson !== existing.additional_emails) {
+            updateQuery += ', additional_emails=?';
+            updateParams.push(additionalEmailsJson);
+        }
     }
     
     updateParams.push(attendeeId);
@@ -413,14 +419,16 @@ export function upsertAttendee(event_id: number, name: string, primaryEmail: str
         db.prepare(`${updateQuery} WHERE id=?`).run(...updateParams);
     } else { 
         // If only last_modified needs update (nothing else changed), still run an update for last_modified.
-        // This handles cases where the function is called but no actual data changed, but we still want to record the "touch".
         db.prepare('UPDATE attendees SET last_modified=? WHERE id=?').run(now, attendeeId);
     }
 
   } else {
     const token = generateToken();
+    // For new attendees, if additionalEmailsJson is undefined (because array wasn't passed),
+    // it defaults to null for the database insert.
+    const finalAdditionalEmailsJsonForInsert = additionalEmailsJson === undefined ? null : additionalEmailsJson;
     db.prepare('INSERT INTO attendees (event_id,name,email,party_size,token,last_modified,additional_emails) VALUES (?,?,?,?,?,?,?)')
-      .run(event_id, name, primaryEmail.trim().toLowerCase(), finalPartySize, token, now, additionalEmailsJson);
+      .run(event_id, name, trimmedPrimaryEmail, finalPartySize, token, now, finalAdditionalEmailsJsonForInsert);
   }
 }
 
@@ -659,7 +667,8 @@ app.post('/admin/attendees/batch', csrfProtection, (req, res) => {
     const [name, email, partyStr] = line.split(',').map((s: string) => s.trim());
     if (name && email) {
       const party = parseInt(partyStr, 10);
-      // For batch, additional emails are not provided in CSV, so pass undefined or empty array
+      // For batch, additional emails are not provided in CSV, so pass an empty array
+      // to signify that any existing additional emails should be cleared.
       upsertAttendee(eventId, name, email, isNaN(party) || party < 1 ? 1 : party, []);
     }
   });
@@ -680,7 +689,8 @@ app.post('/admin/event/:eventId/attendees/parse-emails', csrfProtection, (req, r
       if (parsed.address) {
         const email = parsed.address;
         const name = parsed.name || email.substring(0, email.lastIndexOf('@')).replace(/[."']/g, ' ').trim();
-        // For parsed emails, additional emails are not provided, so pass undefined or empty array
+        // For parsed emails, pass an empty array for additional_emails
+        // to signify that any existing additional emails should be cleared.
         upsertAttendee(eventId, name, email, 1, []); 
       }
     });
@@ -858,15 +868,22 @@ app.post('/admin/attendee/:attendeeId/update-party-size', csrfProtection, (req, 
     res.redirect(`/admin/${attendeeInfo.event_id}`);
     return ;
   }
-
-  const result = db.prepare('UPDATE attendees SET party_size = ?, last_modified = ? WHERE id = ? AND rsvp IS NULL')
-                   .run(newPartySize, now, attendeeId);
-
-  if (result.changes === 0 && attendeeInfo.rsvp === null) {
-    console.warn(`Party size update for attendee ${attendeeId} (who had no RSVP) did not result in changes. Current DB rsvp: ${attendeeInfo.rsvp}. Submitted party size: ${newPartySize}.`);
-  } else if (result.changes > 0) {
-    console.log(`Party size updated for attendee ${attendeeId} to ${newPartySize}.`);
+  
+  // When updating party size, we don't want to unintentionally clear additional_emails.
+  // So, we call upsertAttendee with 'undefined' for additionalEmailsArray.
+  // First, get existing attendee data to pass to upsertAttendee.
+  const existingAttendee = db.prepare('SELECT name, email FROM attendees WHERE id = ?').get(attendeeId) as { name: string, email: string } | undefined;
+  if (!existingAttendee) {
+      // Should not happen if attendeeInfo was found, but as a safeguard:
+      console.error(`Could not retrieve existing attendee data for ID ${attendeeId} during party size update.`);
+      res.status(500).send('Error updating party size.');
+      return;
   }
+
+  // Call upsertAttendee to handle the party size update logic,
+  // passing 'undefined' for additionalEmailsArray to preserve them.
+  // The name and email are passed to identify the attendee for upsert logic, though party_size is the primary change here.
+  upsertAttendee(attendeeInfo.event_id, existingAttendee.name, existingAttendee.email, newPartySize, undefined);
   
   res.redirect(`/admin/${attendeeInfo.event_id}`);
 });
