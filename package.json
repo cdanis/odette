@@ -1,5 +1,5 @@
 {
-  "name": "rsvpquest",
+  "name": "odette",
   "version": "0.1.0",
   "description": "send and track RSVPs",
   "main": "dist/main.js",
