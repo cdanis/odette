@@ -3,9 +3,14 @@
  * Jest tests for RSVP system helpers
  */
 
-// Ensure in-memory DB before importing server
+// Ensure in-memory DB before importing modules
 process.env.DB_PATH = ':memory:';
-import { generateToken, upsertAttendee, db } from '../src/server';
+import { generateToken } from '../src/utils';
+import { upsertAttendee, initializeDatabase, getDatabase } from '../src/database';
+
+// Initialize database for tests
+initializeDatabase(':memory:');
+const db = getDatabase();
 
 describe('generateToken', () => {
   it('returns a 32-character hex string', () => {
