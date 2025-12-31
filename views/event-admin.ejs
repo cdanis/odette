@@ -5,19 +5,7 @@
   <title>Admin - <%= event.title %></title>
   <!-- DataTables CSS -->
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-  <style>
-    .current-banner-image {
-      max-width: 300px;
-      max-height: 200px;
-      margin-top: 10px;
-      margin-bottom: 10px;
-      border: 1px solid #ddd;
-    }
-    /* Styles for the modal - Bulma should handle most of this */
-    /* .modal { display: none; } /* Hidden by default, shown by JS */
-    /* .modal.is-active { display: flex; } */ /* Bulma's way to show modal */
-    .email-list small { display: block; margin-left: 10px; color: #555; }
-  </style>
+  <link rel="stylesheet" href="/static/admin.css">
 </head>
 <body>
   <div class="container">
@@ -160,23 +148,12 @@
             <button type="submit">Add Attendee</button>
           </form>
         </div>
-
-        <div style="visibility: hidden;"> <!-- todo: rethink this feature -->
-          <h3>Batch Add Attendees (CSV)</h3>
-          <form action="/admin/attendees/batch" method="POST">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <input type="hidden" name="event_id" value="<%= event.id %>" />
-            <label for="csv">CSV Data (Name,Email,PartySize per line):</label>
-            <textarea id="csv" name="csv" rows="5" placeholder="John Doe,john@example.com,2&#10;Jane Smith,jane@example.com,1" required></textarea>
-            <button type="submit">Batch Add</button>
-          </form>
-        </div>
       </div>
 
-      <!-- NEW: Parse Email Addresses from "To:" Field -->
-      <div style="margin-top: 20px; margin-bottom: 20px;">
+      <!-- Parse Email Addresses from "To:" Field -->
+      <div class="mt-20 mb-20">
         <h3>Parse Email Addresses from "To:" Field</h3>
-        <p style="font-size: 0.9em; color: #555; margin-bottom: 10px;">
+        <p class="text-muted" style="font-size: 0.9em; margin-bottom: 10px;">
           Paste a list of email recipients (e.g., from an email's "To:" or "Cc:" field).<br>
           Each will be added with a party size of 1. Deduplicates based on email address for this event.<br>
         </p>
@@ -190,7 +167,7 @@
       <!-- END NEW FORM SECTION -->
 
       <% if (allEvents.length > 0) { %>
-      <div class="form-section" style="margin-top: 20px;"> 
+      <div class="form-section mt-20"> 
         <h3>Copy Attendees to This Event (<%= event.title %>)</h3>
         <form action="/admin/attendees/copy" method="POST">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -263,16 +240,21 @@
                 </td>
                 <% 
                   let rsvpStatusText = 'Pending';
+                  let rsvpBadgeClass = 'badge-warning';
                   let rsvpSortOrder = 1; 
                   if (attendee.rsvp === 'yes') {
                     rsvpStatusText = 'YES';
+                    rsvpBadgeClass = 'badge-success';
                     rsvpSortOrder = 2;
                   } else if (attendee.rsvp === 'no') {
                     rsvpStatusText = 'NO';
+                    rsvpBadgeClass = 'badge-danger';
                     rsvpSortOrder = 3;
                   }
                 %>
-                <td data-order="<%= rsvpSortOrder %>"><%= rsvpStatusText %></td>
+                <td data-order="<%= rsvpSortOrder %>">
+                  <span class="badge <%= rsvpBadgeClass %>"><%= rsvpStatusText %></span>
+                </td>
                 <td data-order="<%= attendee.responded_at || 0 %>">
                   <% if (attendee.responded_at) { %>
                     <%= new Date(attendee.responded_at).toLocaleString() %>
@@ -288,27 +270,29 @@
                   <% } %>
                 </td>
                 <td>
-                  <% if (!attendee.is_sent) { %>
-                    <form action="/admin/attendees/send/<%= attendee.id %>" method="POST" style="display: inline; margin-right: 5px;">
+                  <div class="btn-group">
+                    <% if (!attendee.is_sent) { %>
+                      <form action="/admin/attendees/send/<%= attendee.id %>" method="POST" style="display: inline;">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                        <button type="submit" class="btn-icon btn-success" title="Send Invite">✉️</button>
+                      </form>
+                    <% } else { %>
+                      <form action="/admin/attendees/send/<%= attendee.id %>" method="POST" style="display: inline;">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                        <input type="hidden" name="resend" value="1">
+                        <button type="submit" class="btn-icon btn-primary" title="Re-send Invite">🔄</button>
+                      </form>
+                    <% } %>
+                    <button type="button" class="btn-icon edit-emails-button" title="Edit Details"
+                            data-attendee-id="<%= attendee.id %>"
+                            data-attendee-name="<%= attendee.name %>"
+                            data-primary-email="<%= attendee.email %>"
+                            data-additional-emails="<%= additionalEmailsArray.join('\n') %>">✏️</button>
+                    <form action="/admin/attendee/<%= attendee.id %>/delete" method="POST" style="display: inline;" class="delete-attendee-form">
                       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                      <button type="submit" class="action-button">Send Invite</button>
+                      <button type="submit" class="btn-icon btn-danger" title="Delete">🗑️</button>
                     </form>
-                  <% } else { %>
-                    <form action="/admin/attendees/send/<%= attendee.id %>" method="POST" style="display: inline; margin-right: 5px;">
-                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                      <input type="hidden" name="resend" value="1">
-                      <button type="submit" class="action-button">Re-send Invite</button>
-                    </form>
-                  <% } %>
-                  <button type="button" class="action-button edit-emails-button"
-                          data-attendee-id="<%= attendee.id %>"
-                          data-attendee-name="<%= attendee.name %>"
-                          data-primary-email="<%= attendee.email %>"
-                          data-additional-emails="<%= additionalEmailsArray.join('\n') %>">Edit Details</button>
-                  <form action="/admin/attendee/<%= attendee.id %>/delete" method="POST" style="display: inline; margin-left: 5px;" class="delete-attendee-form">
-                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                      <button type="submit" class="action-button delete-button">Delete</button>
-                  </form>
+                  </div>
                 </td>
               </tr>
             <% }) %>
@@ -367,105 +351,15 @@
   <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
   <!-- DataTables JS -->
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="/static/admin.js"></script>
 
   <script>
-    // Helper function to format a Date object to YYYY-MM-DDTHH:MM for datetime-local input
-    function formatDateToLocalInputString(date) {
-      const year = date.getFullYear();
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const day = date.getDate().toString().padStart(2, '0');
-      const hours = date.getHours().toString().padStart(2, '0');
-      const minutes = date.getMinutes().toString().padStart(2, '0');
-      return `${year}-${month}-${day}T${hours}:${minutes}`;
-    }
-
-    // Helper function to handle form submission for date conversion
-    function handleSubmitEventForm(event) {
-      const form = event.target;
-      // Select by current name, which is 'date' or 'date_end' before this script potentially renames them
-      const dateInput = form.querySelector('input[name="date"]'); 
-      const dateEndInput = form.querySelector('input[name="date_end"]');
-
-      if (dateInput && dateInput.value) {
-        const localDate = new Date(dateInput.value);
-        if (!isNaN(localDate.getTime())) {
-          const hiddenUtcDateInput = document.createElement('input');
-          hiddenUtcDateInput.type = 'hidden';
-          hiddenUtcDateInput.name = 'date'; // Keep original name for submission
-          hiddenUtcDateInput.value = localDate.toISOString();
-          form.appendChild(hiddenUtcDateInput);
-          dateInput.name = 'date_display'; // Change name of original input
-        } else {
-          dateInput.name = 'date_display_invalid';
-        }
-      } else if (dateInput) {
-        dateInput.name = 'date_display_empty';
-      }
-
-      if (dateEndInput && dateEndInput.value) {
-        const localDateEnd = new Date(dateEndInput.value);
-        if (!isNaN(localDateEnd.getTime())) {
-          const hiddenUtcDateEndInput = document.createElement('input');
-          hiddenUtcDateEndInput.type = 'hidden';
-          hiddenUtcDateEndInput.name = 'date_end'; // Keep original name
-          hiddenUtcDateEndInput.value = localDateEnd.toISOString();
-          form.appendChild(hiddenUtcDateEndInput);
-          dateEndInput.name = 'date_end_display'; // Change name
-        } else {
-          dateEndInput.name = 'date_end_display_invalid';
-        }
-      } else if (dateEndInput) {
-        dateEndInput.name = 'date_end_display_empty';
-      }
-    }
-
+    // Page-specific DataTables and modal initialization
     $(document).ready(function() {
       $('#attendeesTable').DataTable({
-        "order": [[ 6, "desc" ]] // Default sort by "Last Modified" descending
+        "order": [[ 6, "desc" ]], // Default sort by "Last Modified" descending
+        "pageLength": 25
       });
-
-      // Populate datetime-local inputs for existing event using client's local timezone
-      const dateInput = document.getElementById('date');
-      const dateEndInput = document.getElementById('date_end');
-
-      if (dateInput) {
-        const timestamp = dateInput.dataset.timestamp;
-        // Ensure timestamp is a valid number and not 'null' or 'undefined' string from EJS
-        if (timestamp && timestamp !== 'null' && timestamp !== 'undefined' && !isNaN(Number(timestamp))) {
-          dateInput.value = formatDateToLocalInputString(new Date(Number(timestamp)));
-        } else {
-          dateInput.value = ''; // Clear if no valid timestamp
-        }
-      }
-      if (dateEndInput) {
-        const timestampEnd = dateEndInput.dataset.timestamp;
-        if (timestampEnd && timestampEnd !== 'null' && timestampEnd !== 'undefined' && !isNaN(Number(timestampEnd))) {
-          dateEndInput.value = formatDateToLocalInputString(new Date(Number(timestampEnd)));
-        } else {
-          dateEndInput.value = ''; // Clear if no valid timestamp
-        }
-      }
-      
-      // Attach submit listener to the edit event form
-      const editEventForm = document.getElementById('editEventForm');
-      if (editEventForm) {
-        editEventForm.addEventListener('submit', handleSubmitEventForm);
-      }
-
-      // Display errors from URL query params
-      const urlParams = new URLSearchParams(window.location.search);
-      const error = urlParams.get('error');
-      if (error && !document.querySelector('.form-section p[style="color: red;"]')) { 
-          const errorP = document.createElement('p');
-          errorP.style.color = 'red';
-          errorP.textContent = decodeURIComponent(error);
-          // Try to insert error message after the H2 of the relevant form section
-          // This is a bit generic; might need adjustment if multiple forms could show errors
-          const activeFormH2 = document.querySelector('.form-section h2') || document.querySelector('.form-section h3');
-          if (activeFormH2 && activeFormH2.parentNode) {
-            activeFormH2.parentNode.insertBefore(errorP, activeFormH2.nextSibling);
-          }
-      }
 
       // Edit Details Modal Logic
       const editDetailsModalElement = document.getElementById('editEmailsModal'); // Keep ID for now, or rename if preferred
@@ -509,22 +403,6 @@
       
       const modalBackground = editDetailsModalElement ? editDetailsModalElement.querySelector('.modal-background') : null;
       if(modalBackground) modalBackground.addEventListener('click', closeEditDetailsModal);
-
-      // Delete Attendee Confirmation
-      $('#attendeesTable tbody').on('submit', '.delete-attendee-form', function(event) {
-          event.preventDefault(); // Prevent direct submission
-          const form = this;
-          // Attempt to get the attendee's name from the first <td> in the row
-          const attendeeName = $(form).closest('tr').find('td:first').text().trim();
-          const confirmMessage = attendeeName ? 
-                                 `Are you sure you want to delete attendee "${attendeeName}"? This action cannot be undone.` :
-                                 `Are you sure you want to delete this attendee? This action cannot be undone.`;
-
-          if (window.confirm(confirmMessage)) {
-              form.submit(); // Proceed with submission if confirmed
-          }
-      });
-
     });
   </script>
 </body>

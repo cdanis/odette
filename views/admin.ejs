@@ -3,12 +3,7 @@
 <head>
   <%- include('header'); %>
   <title>Admin Panel - Events</title>
-  <style>
-    /* Add some basic styling for the table to make it more readable */
-    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    th { background-color: #f2f2f2; }
-  </style>
+  <link rel="stylesheet" href="/static/admin.css">
 </head>
 <body>
   <div class="container">
@@ -127,7 +122,9 @@
     </div>
   </div>
 
+  <script src="/static/admin.js"></script>
   <script>
+    // Page-specific initialization (if needed)
     // Helper function to handle form submission for date conversion
     function handleSubmitEventForm(event) {
       const form = event.target;
