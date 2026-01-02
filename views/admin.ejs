@@ -1,189 +1,128 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <%- include('header'); %>
-  <title>Admin Panel - Events</title>
-  <link rel="stylesheet" href="/static/admin.css">
+<%- include('header'); %>
+  <title>odette - my events</title>
 </head>
+
 <body>
-  <div class="container">
-    <h1>Admin Panel</h1>
-
-    <!-- Events Section -->
-    <div class="form-section">
-      <h2>Manage Events</h2>
-      <% if (locals.error) { %>
-        <p style="color: red;"><%= locals.error %></p>
-      <% } %>
-      <form action="/admin/event" method="POST" enctype="multipart/form-data" id="createEventForm">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <h3>Create New Event</h3>
-        <div>
-          <label for="title">Title:</label>
-          <input type="text" id="title" name="title" required />
+  <header class="container">
+    <h1>💌 odette</h1>
+  </header>
+  <main class="container">
+    <article>
+      <header>
+        <h2>My events</h2>
+      </header>
+      <% if (events.length> 0) { %>
+        <div class="grid">
+          <style>
+            dl {
+              display: grid;
+              grid-template-columns: auto auto;
+            }
+            dt {
+              grid-column-start: 1;
+            }
+            dd {
+              grid-column-start: 2;
+              margin: 0;
+            }
+            a[role="button"] {
+              --pico-box-shadow: var(--pico-card-box-shadow);
+            }
+            a[role="button"]:hover {
+              --pico-box-shadow: var(--pico-button-hover-box-shadow);
+            }
+          </style>
+          <% events.forEach(event => { %>
+            <a role="button" class="outline" href="/admin/<%= event.id %>">
+              <header>
+                <h4>
+                  <%= event.title %>
+                </h4>
+              </header>
+              <p>
+                <span>
+                  <%= new Date(event.date).toLocaleString() %>
+                </span>
+                <dl>
+                  <dt>Invited:</dt>
+                  <dd>
+                    <%= event.stats.potentialGuests %>
+                  </dd>
+                  <dt>Attending:</dt>
+                  <dd>
+                    <%= event.stats.guestsAttending %>
+                  </dd>
+                  <dt>Regrets:</dt>
+                  <dd>
+                    <%= event.stats.guestsNotAttending %>
+                  </dd>
+                </dl>
+              </p>
+            </a>
+          <% }); %>
         </div>
-        <div>
-          <label for="date">Start Date & Time:</label>
-          <input type="datetime-local" id="date" name="date" required />
-        </div>
-        <div>
-          <label for="date_end">End Date & Time (Optional):</label>
-          <input type="datetime-local" id="date_end" name="date_end" />
-        </div>
-        <div>
-          <label for="timezone">Event Timezone (Optional):</label>
-          <select id="timezone" name="timezone">
-            <option value="">Select Timezone (Uses server default if none)</option>
-            <% if (typeof timezones !== 'undefined' && timezones.length > 0) { %>
-              <% timezones.forEach(tz => { %>
-                <option value="<%= tz %>"><%= tz %></option>
-              <% }); %>
-            <% } else { %>
-              <option value="" disabled>No timezones available</option>
-            <% } %>
-          </select>
-        </div>
-        <div>
-          <label for="location_name">Location Name (Optional):</label>
-          <input type="text" id="location_name" name="location_name" />
-        </div>
-        <div>
-          <label for="location_href">Location URL (Optional):</label>
-          <input type="url" id="location_href" name="location_href" placeholder="https://maps.example.com/..." />
-        </div>
-        <div>
-          <label for="description">Description (Optional):</label>
-          <textarea id="description" name="description"></textarea>
-        </div>
-        <div>
-          <label for="banner_image_create">Event Banner Image (Optional):</label>
-          <input type="file" id="banner_image_create" name="banner_image" accept="image/png, image/jpeg, image/gif">
-        </div>
-        <button type="submit">Create Event</button>
-      </form>
-
-      <h3>Existing Events</h3>
-      <% if (events.length > 0) { %>
-        <table>
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Start Time (Server Local)</th>
-              <th>End Time (Server Local)</th>
-              <th>Timezone</th>
-              <th>Location</th>
-              <th>Description</th>
-              <th>Potential Guests</th>
-              <th>Not Sent</th>
-              <th>Awaiting Reply</th>
-              <th>Attending</th>
-              <th>Regrets</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% events.forEach(event => { %>
-              <tr>
-                <td><%= event.title %></td>
-                <td><%= new Date(event.date).toLocaleString() %></td>
-                <td>
-                  <% if (event.date_end) { %>
-                    <%= new Date(event.date_end).toLocaleString() %>
-                  <% } else { %>
-                    N/A
-                  <% } %>
-                </td>
-                <td><%= event.timezone || 'Default' %></td>
-                <td>
-                  <% if (event.location_href) { %>
-                    <a href="<%= event.location_href %>" target="_blank" title="<%= event.location_href %>"><%= event.location_name || 'View Map' %></a>
-                  <% } else if (event.location_name) { %>
-                    <%= event.location_name %>
-                  <% } else { %>
-                    N/A
-                  <% } %>
-                </td>
-                <td><%= event.description || 'N/A' %></td>
-                <td><%= event.stats.potentialGuests %></td>
-                <td><%= event.stats.guestsNotSent %></td>
-                <td><%= event.stats.guestsAwaitingReply %></td>
-                <td><%= event.stats.guestsAttending %></td>
-                <td><%= event.stats.guestsNotAttending %></td>
-                <td>
-                  <a href="/admin/<%= event.id %>" class="action-button">Manage Attendees</a>
-                </td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
       <% } else { %>
-        <p>No events created yet.</p>
+        <p><em>You haven't created any events yet.</em></p>
       <% } %>
-    </div>
-  </div>
+      <footer>
+        <details name="create">
+          <summary role="button">Create new event</summary>
+          <form action="/admin/event" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
 
-  <script src="/static/admin.js"></script>
-  <script>
-    // Page-specific initialization (if needed)
-    // Helper function to handle form submission for date conversion
-    function handleSubmitEventForm(event) {
-      const form = event.target;
-      const dateInput = form.querySelector('input[name="date"]'); // Select by original name
-      const dateEndInput = form.querySelector('input[name="date_end"]'); // Select by original name
-
-      if (dateInput && dateInput.value) {
-        const localDate = new Date(dateInput.value);
-        if (!isNaN(localDate.getTime())) {
-          const hiddenUtcDateInput = document.createElement('input');
-          hiddenUtcDateInput.type = 'hidden';
-          hiddenUtcDateInput.name = 'date'; // Keep original name for submission
-          hiddenUtcDateInput.value = localDate.toISOString();
-          form.appendChild(hiddenUtcDateInput);
-          dateInput.name = 'date_display'; // Change name of original input to avoid duplicate submission
-        } else {
-          dateInput.name = 'date_display_invalid';
-        }
-      } else if (dateInput) {
-        // If input is empty but exists, ensure its name is changed so it's not submitted as 'date'
-        dateInput.name = 'date_display_empty';
-      }
-
-      if (dateEndInput && dateEndInput.value) {
-        const localDateEnd = new Date(dateEndInput.value);
-        if (!isNaN(localDateEnd.getTime())) {
-          const hiddenUtcDateEndInput = document.createElement('input');
-          hiddenUtcDateEndInput.type = 'hidden';
-          hiddenUtcDateEndInput.name = 'date_end'; // Keep original name
-          hiddenUtcDateEndInput.value = localDateEnd.toISOString();
-          form.appendChild(hiddenUtcDateEndInput);
-          dateEndInput.name = 'date_end_display'; // Change name
-        } else {
-          dateEndInput.name = 'date_end_display_invalid';
-        }
-      } else if (dateEndInput) {
-        dateEndInput.name = 'date_end_display_empty';
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-      const createEventForm = document.getElementById('createEventForm');
-      if (createEventForm) {
-        createEventForm.addEventListener('submit', handleSubmitEventForm);
-      }
-
-      // Display errors from URL query params if any (e.g., from Multer)
-      const urlParams = new URLSearchParams(window.location.search);
-      const error = urlParams.get('error');
-      if (error && !document.querySelector('.form-section p[style="color: red;"]')) { 
-          const errorP = document.createElement('p');
-          errorP.style.color = 'red';
-          errorP.textContent = decodeURIComponent(error);
-          const formSectionH2 = document.querySelector('#createEventForm h3'); // Insert after "Create New Event"
-          if (formSectionH2 && formSectionH2.parentNode) {
-            formSectionH2.parentNode.insertBefore(errorP, formSectionH2.nextSibling);
-          }
-      }
-    });
-  </script>
+            <fieldset>
+              <label>
+                Event title
+                <input type="text" name="title" placeholder="My awesome party" required />
+              </label>
+              <label>
+                Event date and start time
+                <input type="datetime-local" name="date" required />
+              </label>
+              <label>
+                Event timezone (defaults to yours)
+                <select name="timezone">
+                  <option value="?">Pick a timezone - we couldn't find yours :(</option>
+                  <% if (typeof timezones !=='undefined' && timezones.length> 0) { %>
+                    <% timezones.forEach(tz=> { %>
+                      <option value="<%= tz %>">
+                        <%= tz %>
+                      </option>
+                      <% }); %>
+                        <% } else { %>
+                          <option value="" disabled>No timezones available</option>
+                          <% } %>
+                </select>
+                <script>
+                  document.addEventListener('DOMContentLoaded', function () {
+                    const timezoneSelect = document.querySelector('select[name="timezone"]');
+                    if (timezoneSelect && timezoneSelect.options.length > 1) {
+                      if (timezoneSelect.selectedIndex === 0) {
+                        // disable the first (placeholder) option
+                        timezoneSelect.options[0].disabled = true;
+                        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                        for (let option of timezoneSelect.options) {
+                          if (option.value === userTimezone) {
+                            option.selected = true;
+                            break;
+                          }
+                        }
+                      }
+                    }
+                  });
+                </script>
+              </label>
+            </fieldset>
+            <input type="submit" value="Create it! 🎉" />
+          </form>
+        </details>
+      </footer>
+    </article>
+  </main>
 </body>
+
 </html>
