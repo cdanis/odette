@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -7,44 +8,31 @@
     <%- include('header'); %>
     <title>odette: simple event invites</title>
     <style>
-        .title {
-            font-size: 3rem; /* Make the title larger */
-            font-weight: bold;
-            margin-bottom: 1rem;
+        h1 {
             font-family: "Nothing You Could Do", cursive;
+            font-size: 250%;
         }
-        .hero-body {
-            text-align: center;
-        }
-        .hero-emojis {
-            font-size: 3rem; /* Make emojis larger */
-            margin: 1rem 0;
-        }
-        .hero-tagline {
-            font-size: 1.1rem;
-            color: #4a4a4a; /* Bulma's default text color for readability */
-            margin-bottom: 1.5rem;
-        }
-        .admin-link-container {
-            margin-top: 2rem;
+        header {
+            border-bottom: 2px solid var(--pico-primary-border) !important;
         }
     </style>
 </head>
-<body>
-    <section class="hero is-fullheight-with-navbar">
-        <div class="hero-body">
-            <div class="container">
-                <h1 class="title is-1">
-                    odette 💌
-                </h1>
-                <div class="hero-emojis">
-                    📅
-                </div>
-                <p class="hero-tagline">
-                    Dirt-simple event invites, always free, never ads ✊
-                </p>
-            </div>
-        </div>
-    </section>
+
+<body class="modal-is-opening">
+    <main class="container">
+        <dialog open>
+            <article style="text-align: center;">
+                <header>
+                    <h1>💌 odette</h1>
+                </header>
+                <menu style="list-style-type: none; padding: 0;">
+                    <li>Dirt-simple event invites 📅 </li>
+                    <li>🌻 By you, for you</li>
+                    <li>Always free, never ads ✊</li>
+                </menu>
+            </article>
+        </dialog>
+    </main>
 </body>
+
 </html>

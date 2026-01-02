@@ -1,31 +1,4 @@
-body {
-  font-family: sans-serif;
-  margin: 20px;
-  background-color: #f4f4f4;
-  color: #333;
-}
 
-.container {
-  background-color: #fff;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-  max-width: 900px; /* Added for better readability on wider screens */
-  margin-left: auto; /* Center container */
-  margin-right: auto; /* Center container */
-}
-
-h1, h2 {
-  color: #333;
-  border-bottom: 2px solid #eee;
-  padding-bottom: 10px;
-}
-
-h3 {
-  margin-top: 20px;
-  margin-bottom: 10px;
-  color: #444;
-}
 
 label {
   display: block;
