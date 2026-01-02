@@ -119,7 +119,7 @@ export const db = getDatabase();
 // ============================================================================
 
 // Public routes
-app.use('/', publicRoutes);
+app.use('/', upload.none(), csrfProtection, publicRoutes);
 
 // Admin + attendee routes (protected by reverse proxy auth - no built-in authentication)
 // Multer runs before CSRF so multipart forms (with or without files) populate req.body/_csrf
