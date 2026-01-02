@@ -1,3 +1,9 @@
+# v1
+* TODO: styled error pages
+* TODO: convert rsvp.ejs
+* TODO: convert event-admin.ejs
+* TODO: convert thanks.ejs
+
 # MVP
 * FEAT: last modified timestamp on attendees
 * FEAT: interactive (htmlx) editing of events and attendees
