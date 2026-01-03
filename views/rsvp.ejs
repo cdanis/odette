@@ -6,94 +6,112 @@
     <title>
         RSVP - <%= attendee.event_title %>
     </title>
+
     <style>
         .event-banner {
             width: 100%;
-            max-height: 300px; /* Adjust as needed */
-            object-fit: cover; /* Crop image to fit, maintaining aspect ratio */
-            margin-bottom: 1rem;
-            border-radius: 3px; /* Optional: if your card has rounded corners */
+            object-fit: contain;
+            max-height: 400px;
         }
-        .card {
-            /* Ensure card can contain the image nicely */
-            overflow: hidden; /* If banner is first child and has different radius */
+
+        article>header>h2 {
+            margin-bottom: 0;
         }
-        .event-time, .event-location { margin-bottom: 0.5rem; }
-        .add-to-calendar-container { margin-top: 1rem; margin-bottom: 1.5rem; }
     </style>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
 </head>
 
 <body>
-    <div class="container">
-        <div class="card">  <%# todo: separate to a sub-'component' template %>
+    <main class="container">
+        <div class="grid">
             <% if (attendee.event_banner_image_filename) { %>
-                <img src="/uploads/event-banners/<%= attendee.event_banner_image_filename %>" alt="<%= attendee.event_title %> Banner" class="event-banner">
+                <figure><img src="/uploads/event-banners/<%= attendee.event_banner_image_filename %>"
+                        alt="<%= attendee.event_title %> Banner" class="event-banner"></figure>
             <% } %>
-                <h1 class="title">
-                    <%= attendee.event_title %>
-                </h1>
-            <div class="event-time">
-                <strong>When:</strong> 
-                <span id="event-start-time" class="local-datetime" data-timestamp="<%= attendee.event_date %>">
-                    <%= new Date(attendee.event_date).toLocaleString() %>
-                </span>
-                <% if (attendee.event_date_end) { %>
-                    to <span id="event-end-time" class="local-datetime" data-timestamp="<%= attendee.event_date_end %>">
-                        <%= new Date(attendee.event_date_end).toLocaleString() %>
-                    </span>
-                <% } %>
-            </div>
-            <% if (attendee.event_location_name || attendee.event_location_href) { %>
-                <div class="event-location">
-                    <strong>Where:</strong>
-                    <% if (attendee.event_location_href) { %>
-                        <a href="<%= attendee.event_location_href %>" target="_blank"><%= attendee.event_location_name || 'View Map' %></a>
-                    <% } else { %>
-                        <%= attendee.event_location_name %>
-                    <% } %>
+
+            <article>
+                <header>
+                    <h2>
+                        <%= attendee.event_title %>
+                    </h2>
+                </header>
+                <section>
+                <div class="add-to-calendar-container" style="margin-top: 0; margin-bottom: 0.5rem;">
+                    <a href="/ics/<%= attendee.token %>" role="button" download>
+                        <span>📅 Add to Calendar</span>
+                    </a>
                 </div>
-            <% } %>
+                <div style="padding-bottom: 0.33rem;">
+                    <div>
+                        <span id="event-start-time" class="local-datetime"
+                            data-timestamp="<%= attendee.event_date %>">
+                            <%= new Date(attendee.event_date).toLocaleString() %>
+                        </span>
+                    </div>
+                    <div>
+                        <% if (attendee.event_location_name || attendee.event_location_href) { %>
+                            <% if (attendee.event_location_href) { %>
+                                <a href="<%= attendee.event_location_href %>" target="_blank">
+                                    <%= attendee.event_location_name || 'Location' %>
+                                </a>
+                            <% } else { %>
+                                <%= attendee.event_location_name %>
+                            <% } %>
+                        <% } %>
+                    </div>
+                </div>
+            </section>
             <% if (attendee.event_desc) { %>
-                <p class="description"><%- attendee.event_desc %></p>
+                <section>
+                    <p class="description"><%- attendee.event_desc %></p>
+                </section>
             <% } %>
+            <hr />
+            <section>
+                <form action="/rsvp/<%= attendee.token %>" method="POST" class="rsvp-form">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <label>
+                    You are:
+                    <input type="text" name="name_display" value="<%= attendee.name %>" disabled />
+                </label>
+                <fieldset>
+                    <legend>Will you attend?</legend>
+                    <label><input type="radio" name="rsvp" value="yes" <% if (attendee.rsvp==='yes') { %>checked<% } %>
+                            required /> Yes</label>
+                    <label><input type="radio" name="rsvp" value="no" <% if (attendee.rsvp==='no') { %>checked<% } %>
+                            />
+                            No</label>
+                </fieldset>
+                <label for="party_size_rsvp">
+                    Total people in your group (including you!):
+                    <input type="number" id="party_size_rsvp" name="party_size" min="1"
+                        value="<%= attendee.party_size %>" required />
+                </label>
+                <input type="submit" value="Respond 📩"/>
+            </form>
 
-            <%# "Add to Calendar" button %>
-            <div class="add-to-calendar-container">
-                <a href="/ics/<%= attendee.token %>" class="action-button button is-link" download>
-                    <span>📅 Add to Calendar</span>
-                </a>
-            </div>
+            </section>
+            </article>
         </div>
-
-        <%# todo: htmx island %>
-        <form action="/rsvp/<%= attendee.token %>" method="POST" class="rsvp-form">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <label for="name_disabled">
-                Your Name:
-                <input type="text" id="name_disabled" name="name_display" value="<%= attendee.name %>" disabled />
-            </label>
-            <fieldset>
-                <legend>Will you attend?</legend>
-                <label><input type="radio" name="rsvp" value="yes" <% if (attendee.rsvp==='yes' ) { %>checked<% } %>
-                        required /> Yes</label>
-                <label><input type="radio" name="rsvp" value="no" <% if (attendee.rsvp==='no' ) { %>checked<% } %> />
-                        No</label>
-            </fieldset>
-            <label for="party_size_rsvp">
-                Total people in your group (including you!):
-                <input type="number" id="party_size_rsvp" name="party_size" min="1" value="<%= attendee.party_size %>"
-                    required />
-            </label>
-            <button class="button is-primary" type="submit">Respond 📩</button>
-        </form>
-    </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/dayjs.min.js" integrity="sha512-FwNWaxyfy2XlEINoSnZh1JQ5TRRtGow0D6XcmAWmYCRgvqOUTnzCxPc9uF35u5ZEpirk1uhlPVA19tflhvnW1g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/utc.min.js" integrity="sha512-z84O912dDT9nKqvpBnl1tri5IN0j/OEgMzLN1GlkpKLMscs5ZHVu+G2CYtA6dkS0YnOGi3cODt3BOPnYc8Agjg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/timezone.min.js" integrity="sha512-nrkE2nl0pcqWefIY627DY1exPOSuZXMdOrxMxX0y7Ly6RH8K0WDjO1lqakkxQcX5m8hxoUSt75seRRiyhqPvIw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/localizedFormat.min.js" integrity="sha512-vjS0MkqX58pv35Mv03gzee3TSJ74Gg5lPkgel1V8czy+sTX/ZoFMs/FqnGzWpf3IV+Ry3/mJ0i9nANcjKk1fBg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/isSameOrBefore.min.js" integrity="sha512-QrDN35Hb2sRTjFOKNIMLrX6SrjsJBlBE1+WAZnXJPEfGlYiPRgmN8oE9Uvz/5S+h55lmp/Jsiq1gHfCDAquXWA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/isSameOrAfter.min.js" integrity="sha512-8gn84sM7ampZwKjmwm8+y8/FpiPbFVgJGqR5Aio1Lx2T08tEvmJQ5ffLWQFnjDkD/c4kzxebsVtJFswTIvvT+g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    </main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/dayjs.min.js"
+        integrity="sha512-FwNWaxyfy2XlEINoSnZh1JQ5TRRtGow0D6XcmAWmYCRgvqOUTnzCxPc9uF35u5ZEpirk1uhlPVA19tflhvnW1g=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/utc.min.js"
+        integrity="sha512-z84O912dDT9nKqvpBnl1tri5IN0j/OEgMzLN1GlkpKLMscs5ZHVu+G2CYtA6dkS0YnOGi3cODt3BOPnYc8Agjg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/timezone.min.js"
+        integrity="sha512-nrkE2nl0pcqWefIY627DY1exPOSuZXMdOrxMxX0y7Ly6RH8K0WDjO1lqakkxQcX5m8hxoUSt75seRRiyhqPvIw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/localizedFormat.min.js"
+        integrity="sha512-vjS0MkqX58pv35Mv03gzee3TSJ74Gg5lPkgel1V8czy+sTX/ZoFMs/FqnGzWpf3IV+Ry3/mJ0i9nANcjKk1fBg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/isSameOrBefore.min.js"
+        integrity="sha512-QrDN35Hb2sRTjFOKNIMLrX6SrjsJBlBE1+WAZnXJPEfGlYiPRgmN8oE9Uvz/5S+h55lmp/Jsiq1gHfCDAquXWA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/isSameOrAfter.min.js"
+        integrity="sha512-8gn84sM7ampZwKjmwm8+y8/FpiPbFVgJGqR5Aio1Lx2T08tEvmJQ5ffLWQFnjDkD/c4kzxebsVtJFswTIvvT+g=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             if (typeof dayjs === 'undefined') {
@@ -124,19 +142,19 @@
                         // Keep server-rendered if startDate is invalid
                     }
                 } else {
-                     console.error('Start timestamp is missing or invalid. Value:', startTimestamp);
+                    console.error('Start timestamp is missing or invalid. Value:', startTimestamp);
                 }
             }
 
-            if (endTimeEl && startDate && startDate.isValid()) { 
+            if (endTimeEl && startDate && startDate.isValid()) {
                 const endTimestamp = endTimeEl.dataset.timestamp;
                 if (endTimestamp && !isNaN(Number(endTimestamp))) {
                     const endDate = dayjs(Number(endTimestamp));
                     if (endDate.isValid()) {
                         if (startDate.isSame(endDate, 'day')) {
-                            endTimeEl.textContent = endDate.format('LT'); 
+                            endTimeEl.textContent = endDate.format('LT');
                         } else {
-                            endTimeEl.textContent = endDate.format('dddd, MMMM D, YYYY LT'); 
+                            endTimeEl.textContent = endDate.format('dddd, MMMM D, YYYY LT');
                         }
                     } else {
                         console.error('Parsed end date is invalid. Timestamp:', endTimestamp);
@@ -146,7 +164,7 @@
                     console.error('End timestamp is missing or invalid. Value:', endTimestamp);
                 }
             }
-            
+
             // Fallback for any other .local-datetime elements that are not the main start/end times
             document.querySelectorAll('.local-datetime:not(#event-start-time):not(#event-end-time)').forEach(el => {
                 const timestamp = el.dataset.timestamp;
@@ -166,14 +184,14 @@
             function togglePartySize() {
                 if (document.querySelector('input[name="rsvp"][value="no"]:checked')) {
                     partySizeInput.disabled = true;
-                    partySizeInput.style.backgroundColor = '#e9ecef'; 
+                    partySizeInput.style.backgroundColor = '#e9ecef';
                 } else {
                     partySizeInput.disabled = false;
                     partySizeInput.style.backgroundColor = '';
                 }
             }
             rsvpRadios.forEach(radio => radio.addEventListener('change', togglePartySize));
-            togglePartySize(); 
+            togglePartySize();
         });
     </script>
 </body>
