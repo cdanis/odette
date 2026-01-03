@@ -118,12 +118,13 @@ export const db = getDatabase();
 // Routes
 // ============================================================================
 
-// Public routes
-app.use('/', upload.none(), csrfProtection, publicRoutes);
-
 // Admin + attendee routes (protected by reverse proxy auth - no built-in authentication)
 // Multer runs before CSRF so multipart forms (with or without files) populate req.body/_csrf
 app.use('/admin', upload.single('banner_image'), csrfProtection, adminRoutes, attendeeRoutes);
+
+// Public routes
+app.use('/', upload.none(), csrfProtection, publicRoutes);
+
 
 // ============================================================================
 // Error Handling
@@ -133,6 +134,7 @@ app.use('/admin', upload.single('banner_image'), csrfProtection, adminRoutes, at
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err instanceof multer.MulterError) {
     console.error('Multer Error:', err.message);
+    console.error(err);
     const redirectUrl = req.headers.referer || (req.body.event_id ? `/admin/${req.body.event_id}` : (req.params.eventId ? `/admin/${req.params.eventId}` : '/admin'));
     return res.redirect(`${redirectUrl}?error=${encodeURIComponent(err.message)}`);
   } else if (err && (err.message.includes('Invalid file type') || err.message.includes('File too large'))) {
