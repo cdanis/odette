@@ -1,7 +1,7 @@
 # v1
 * DONE: convert rsvp.ejs
 * TODO: convert event-admin.ejs
-* TODO: convert thanks.ejs
+* DONE: convert thanks.ejs
 * TODO: styled error pages
 
 # MVP

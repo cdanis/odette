@@ -99,7 +99,8 @@ router.post('/rsvp/:token', async (req: Request, res: Response) => {
   res.render('thanks', { 
     rsvp, 
     party_size: (rsvp === 'yes' ? finalPartySize : 0),
-    token: req.params.token
+    token: req.params.token,
+    event_title: attendeeData.event_title,
   });
 });
 

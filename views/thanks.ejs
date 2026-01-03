@@ -5,15 +5,26 @@
   <title>Thank You!</title>
 </head>
 <body>
-  <div class="container">
-    <h1 class="title">Thanks for Your Response</h1>
+  <main class="container">
+    <article><header>
+    <hgroup>
+      <h1>Thanks for your response</h1>
+      <p><%= event_title %></p>
+    </hgroup></header>
     <% if (rsvp === 'yes') { %>
+      <div class="add-to-calendar-container" style="margin-top: 0; margin-bottom: 0.5rem;">
+          <a href="/ics/<%= token %>" role="button" download>
+              <span>📅 Add to Calendar</span>
+          </a>
+      </div>
+
       <p>Awesome! We’re looking forward to seeing <% if (party_size > 1) { %> your party of <%= party_size %><% } else { %> you there<% } %>.</p>
     <% } else { %>
       <p>Sorry you can’t make it. We appreciate you letting us know.</p>
     <% } %>
     <p class="footer">If you need to change your response, just revisit 
         <a href="/rsvp/<%= token %>">your unique link</a>.</p>
-  </div>
+  </article>
+  </main>
 </body>
 </html>
