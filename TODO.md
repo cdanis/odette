@@ -1,8 +1,16 @@
-# v1
+# v0
 * DONE: convert rsvp.ejs
 * TODO: convert event-admin.ejs
 * DONE: convert thanks.ejs
 * TODO: styled error pages
+* TODO: minimal footer? + about page?
+* TODO: proper session middleware
+
+# v1
+* TODO: multi-user
+  * users table
+  * users<>event permissions join table?
+  * passportjs social logins?
 
 # MVP
 * FEAT: last modified timestamp on attendees
