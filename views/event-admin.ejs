@@ -1,15 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <%- include('header'); %>
+<%- include('header'); %>
   <title>odette.rsvp - editing <%= event.title %></title>
   <!-- DataTables CSS -->
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-  <link rel="stylesheet" href="/static/admin.css">
+  <link rel="stylesheet" href="/static/admin.css"> <!-- TODO -->
 </head>
+
 <body>
-  <div class="container">
-    <p><a href="/admin">&laquo; Back to All Events</a></p>
+  <header class="container">
+    <h1>💌 odette.rsvp</h1>
+  <nav aria-label="breadcrumb">
+    <ul>
+      <li><a href="/admin">My events</a></li>
+      <li><%= event.title %></li>
+    </ul>
+  </nav>
+  </header>
+
+  <main class="container">
     <h1>Manage Event: <%= event.title %></h1>
 
     <!-- Edit Event Details Section -->
