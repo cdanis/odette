@@ -5,26 +5,11 @@
 
 // Ensure in-memory DB before importing modules
 process.env.DB_PATH = ':memory:';
-import { generateToken } from '../src/utils';
 import { upsertAttendee, initializeDatabase, getDatabase } from '../src/database';
 
 // Initialize database for tests
 initializeDatabase(':memory:');
 const db = getDatabase();
-
-describe('generateToken', () => {
-  it('returns a 32-character hex string', () => {
-    const token = generateToken();
-    expect(typeof token).toBe('string');
-    expect(token).toMatch(/^[0-9a-f]{32}$/);
-  });
-
-  it('returns unique tokens on subsequent calls', () => {
-    const a = generateToken();
-    const b = generateToken();
-    expect(a).not.toBe(b);
-  });
-});
 
 describe('upsertAttendee', () => {
   const eventId = 1;

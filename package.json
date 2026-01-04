@@ -7,7 +7,7 @@
     "build": "tsc",
     "start": "node dist/main.js",
     "dev": "nodemon src/main.ts",
-    "test": "jest"
+    "test": "jest --verbose"
   },
   "author": "Chris Danis <cdanis@gmail.com>",
   "license": "AGPL-3.0-or-later",
