@@ -55,11 +55,14 @@ describe('upsertAttendee', () => {
     expect(after.party_size).toBe(4);
   });
 
-  it('does not change party_size if unchanged', () => {
+  it('does not change party_size if unchanged, but updates last_modified', () => {
     upsertAttendee(eventId, 'Carol', 'carol@example.com', 3);
-    const before = db.prepare('SELECT party_size FROM attendees WHERE email = ?').get('carol@example.com') as any;
-    upsertAttendee(eventId, 'Carol', 'carol@example.com', 3);
-    const after = db.prepare('SELECT party_size FROM attendees WHERE email = ?').get('carol@example.com') as any;
+    const before = db.prepare('SELECT party_size, last_modified FROM attendees WHERE email = ?').get('carol@example.com') as any;
+    for (let i = 0; i < 100; i++) {  //hack
+      upsertAttendee(eventId, 'Carol', 'carol@example.com', 3);
+    }
+    const after = db.prepare('SELECT party_size, last_modified FROM attendees WHERE email = ?').get('carol@example.com') as any;
     expect(after.party_size).toBe(before.party_size);
+    expect(after.last_modified).toBeGreaterThan(before.last_modified);
   });
 });
