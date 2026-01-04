@@ -12,6 +12,15 @@ export function generateToken(): string {
 }
 
 /**
+ * Validate that a token is a valid 32-character hex string
+ * @param token Token to validate
+ * @returns True if token matches the valid format
+ */
+export function isValidToken(token: string): boolean {
+  return /^[0-9a-f]{32}$/.test(token);
+}
+
+/**
  * Format a JavaScript timestamp to ICS UTC date-time string
  * @param timestamp JS timestamp in milliseconds
  * @returns ICS-formatted date string (e.g., "20250101T120000Z")

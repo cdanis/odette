@@ -5,7 +5,7 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { getDatabase, type AttendeeView } from '../database';
 import { notifyAdmin } from '../notifications';
-import { formatICSDate, escapeICSText } from '../utils';
+import { formatICSDate, escapeICSText, isValidToken } from '../utils';
 
 const router = Router();
 
@@ -25,7 +25,7 @@ router.get('/', (req: Request, res: Response) => {
  * Display RSVP form for a given token
  */
 router.get('/rsvp/:tok', (req: Request, res: Response) => {
-  if (!/^[0-9a-f]{32}$/.test(req.params.tok)) {
+  if (!isValidToken(req.params.tok)) {
     res.status(400).send('Invalid token format');
     return;
   }
@@ -58,7 +58,7 @@ router.get('/rsvp/:tok', (req: Request, res: Response) => {
  * Process RSVP submission
  */
 router.post('/rsvp/:token', async (req: Request, res: Response) => {
-  if (!/^[0-9a-f]{32}$/.test(req.params.token)) {
+  if (!isValidToken(req.params.token)) {
     res.status(400).send('Invalid token format');
     return;
   }
@@ -112,7 +112,7 @@ router.post('/rsvp/:token', async (req: Request, res: Response) => {
  * Generate and download ICS calendar file for an event
  */
 router.get('/ics/:token', async (req: Request, res: Response) => {
-  if (!/^[0-9a-f]{32}$/.test(req.params.token)) {
+  if (!isValidToken(req.params.token)) {
     res.status(400).send('Invalid token format');
     return;
   }
