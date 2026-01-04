@@ -33,6 +33,8 @@ describe('upsertAttendee', () => {
     expect(dRow.name).toBe('Daphne');
     expect(dRow.party_size).toBe(2);
     expect(dRow.token).toHaveLength(32);
+    expect(dRow.event_id).toBe(eventId);
+    expect(dRow.last_modified).toBeGreaterThan(0);
   });
 
   it('uses a default party_size of 1 if not provided', () => {
