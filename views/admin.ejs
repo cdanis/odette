@@ -84,39 +84,7 @@
                 Event date and start time
                 <input type="datetime-local" name="date" required />
               </label>
-              <label>
-                Event timezone (defaults to yours)
-                <select name="timezone">
-                  <option value="?">Pick a timezone - we couldn't find yours :(</option>
-                  <% if (typeof timezones !=='undefined' && timezones.length> 0) { %>
-                    <% timezones.forEach(tz=> { %>
-                      <option value="<%= tz %>">
-                        <%= tz %>
-                      </option>
-                      <% }); %>
-                        <% } else { %>
-                          <option value="" disabled>No timezones available</option>
-                          <% } %>
-                </select>
-                <script>
-                  document.addEventListener('DOMContentLoaded', function () {
-                    const timezoneSelect = document.querySelector('select[name="timezone"]');
-                    if (timezoneSelect && timezoneSelect.options.length > 1) {
-                      if (timezoneSelect.selectedIndex === 0) {
-                        // disable the first (placeholder) option
-                        timezoneSelect.options[0].disabled = true;
-                        const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-                        for (let option of timezoneSelect.options) {
-                          if (option.value === userTimezone) {
-                            option.selected = true;
-                            break;
-                          }
-                        }
-                      }
-                    }
-                  });
-                </script>
-              </label>
+              <%- include('timezone-select', { labelText: 'Event timezone (defaults to yours)' }); %>
             </fieldset>
             <input type="submit" value="Create it! 🎉" />
           </form>

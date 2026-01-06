@@ -1,0 +1,42 @@
+<%
+  // Parameters:
+  // - labelText: Label text for the select (default: "Event Timezone")
+  // - inputId: Optional id for the select element
+  // - selectedTimezone: Pre-selected timezone value (for editing existing events)
+  // - labelClass: Optional class for the label element
+  
+  const labelText = locals.labelText || 'Event Timezone';
+  const inputId = locals.inputId || null;
+  const selectedTimezone = locals.selectedTimezone || null;
+  const labelClass = locals.labelClass || '';
+%>
+<label <%= labelClass ? `class="${labelClass}"` : '' %> <%= inputId ? `for="${inputId}"` : '' %>>
+  <%= labelText %>
+  <select <%= inputId ? `id="${inputId}"` : '' %> name="timezone">
+    <option value="">Select Timezone (Uses server default if none)</option>
+    <% if (typeof timezones !== 'undefined' && timezones.length > 0) { %>
+      <% timezones.forEach(tz => { %>
+        <option value="<%= tz %>" <%= (selectedTimezone === tz) ? 'selected' : '' %>><%= tz %></option>
+      <% }); %>
+    <% } else { %>
+      <option value="" disabled>No timezones available</option>
+    <% } %>
+  </select>
+  <script>
+    (function() {
+      const timezoneSelect = document.<%- inputId ? `getElementById('${inputId}')` : `querySelector('select[name="timezone"]')` %>;
+      if (timezoneSelect && timezoneSelect.options.length > 1) {
+        // Only auto-select if no timezone was already selected
+        if (timezoneSelect.selectedIndex === 0) {
+          const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          for (let option of timezoneSelect.options) {
+            if (option.value === userTimezone) {
+              option.selected = true;
+              break;
+            }
+          }
+        }
+      }
+    })();
+  </script>
+</label>

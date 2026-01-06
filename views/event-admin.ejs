@@ -45,17 +45,7 @@
           <input type="datetime-local" id="date_end" name="date_end" data-timestamp="<%= event.date_end %>" />
         </div>
         <div>
-          <label for="timezone">Event Timezone (Optional):</label>
-          <select id="timezone" name="timezone">
-            <option value="">Select Timezone (Uses server default if none)</option>
-            <% if (typeof timezones !== 'undefined' && timezones.length > 0) { %>
-              <% timezones.forEach(tz => { %>
-                <option value="<%= tz %>" <%= (event.timezone === tz) ? 'selected' : '' %>><%= tz %></option>
-              <% }); %>
-            <% } else { %>
-              <option value="" disabled>No timezones available</option>
-            <% } %>
-          </select>
+          <%- include('timezone-select', { labelText: 'Event Timezone', inputId: 'timezone', selectedTimezone: event.timezone }); %>
         </div>
         <div>
           <label for="location_name">Location Name (Optional):</label>
