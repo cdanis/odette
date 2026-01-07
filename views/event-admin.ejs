@@ -38,36 +38,6 @@
         margin-bottom: 0;
       }
     </style>
-    <!-- RSVP Summary Section -->
-    <% if (typeof attendeeStats !== 'undefined') { %>
-    <section>
-      <article class="rsvp-summary">
-        <header>
-          <h3>Response summary</h3>
-        </header>
-        <section class="grid">
-          <div><header>
-            <strong>Potential Guests:</strong></header> <%= attendeeStats.potentialGuests %>
-          </div>
-          <div><header>
-            <strong>Invites Not Sent:</strong> </header> <%= attendeeStats.guestsNotSent %>
-          </div>
-          <div> <header>
-            <strong>Invites Sent:</strong> </header> <%= attendeeStats.guestsInvited %>
-          </div>
-        </section><section class="grid">  <%# is there a better way to do this? %>
-          <div><header>
-            <strong>Awaiting Reply:</strong> </header> <%= attendeeStats.guestsAwaitingReply %>
-          </div>
-          <div> <header>
-            <strong>Attending:</strong> </header> <%= attendeeStats.guestsAttending %>
-          </div>
-          <div> <header>
-            <strong>Not Attending:</strong> </header> <%= attendeeStats.guestsNotAttending %>
-          </div>
-        </section>
-    </section>
-    <% } %>
 
     <details>
       <summary role="button">Edit event details</summary>
@@ -206,8 +176,9 @@
       <!-- END NEW FORM SECTION -->
 
       <% if (allEvents.length > 0) { %>
-      <div class="form-section mt-20"> 
-        <h3>Copy Attendees to This Event (<%= event.title %>)</h3>
+      <details>
+        <summary role="button">Copy attendees from another event</summary>
+      <article> 
         <form action="/admin/attendees/copy" method="POST">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" name="to_event" value="<%= event.id %>" />
@@ -219,9 +190,41 @@
           </select>
           <button type="submit">Copy Attendees</button>
         </form>
-      </div>
+      </article>
+      </details>
       <% } %>
 
+
+          <!-- RSVP Summary Section -->
+    <% if (typeof attendeeStats !== 'undefined') { %>
+    <section>
+      <article class="rsvp-summary">
+        <header>
+          <h3>Response summary</h3>
+        </header>
+        <section class="grid">
+          <div><header>
+            <strong>Potential Guests:</strong></header> <%= attendeeStats.potentialGuests %>
+          </div>
+          <div><header>
+            <strong>Invites Not Sent:</strong> </header> <%= attendeeStats.guestsNotSent %>
+          </div>
+          <div> <header>
+            <strong>Invites Sent:</strong> </header> <%= attendeeStats.guestsInvited %>
+          </div>
+        </section><section class="grid">  <%# is there a better way to do this? %>
+          <div><header>
+            <strong>Awaiting Reply:</strong> </header> <%= attendeeStats.guestsAwaitingReply %>
+          </div>
+          <div> <header>
+            <strong>Attending:</strong> </header> <%= attendeeStats.guestsAttending %>
+          </div>
+          <div> <header>
+            <strong>Not Attending:</strong> </header> <%= attendeeStats.guestsNotAttending %>
+          </div>
+        </section>
+    </section>
+    <% } %>
 
       <h3>Responses</h3>
       <% if (attendees.length > 0) { %>
