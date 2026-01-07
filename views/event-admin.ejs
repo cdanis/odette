@@ -22,7 +22,51 @@
   </header>
 
   <main class="container">
-    <h1>Manage Event: <%= event.title %></h1>
+
+
+    <style>
+      article.rsvp-summary > .grid > div {
+        padding:calc(var(--pico-spacing)/ 2) 0;
+        border-radius:var(--pico-border-radius);
+        background-color:var(--pico-code-background-color);
+        color:var(--pico-muted-color);
+        font-size:.875rem;
+        text-align:center
+      }
+    </style>
+    <!-- RSVP Summary Section -->
+    <% if (typeof attendeeStats !== 'undefined') { %>
+    <section>
+      <article class="rsvp-summary">
+        <header>
+          <h3>Response summary</h3>
+        </header>
+        <section class="grid">
+          <div><header>
+            <strong>Potential Guests:</strong></header> <%= attendeeStats.potentialGuests %>
+          </div>
+          <div><header>
+            <strong>Invites Not Sent:</strong> </header> <%= attendeeStats.guestsNotSent %>
+          </div>
+          <div> <header>
+            <strong>Invites Sent:</strong> </header> <%= attendeeStats.guestsInvited %>
+          </div>
+        </section><section class="grid">  <%# is there a better way to do this? %>
+          <div><header>
+            <strong>Awaiting Reply:</strong> </header> <%= attendeeStats.guestsAwaitingReply %>
+          </div>
+          <div> <header>
+            <strong>Attending:</strong> </header> <%= attendeeStats.guestsAttending %>
+          </div>
+          <div> <header>
+            <strong>Not Attending:</strong> </header> <%= attendeeStats.guestsNotAttending %>
+          </div>
+        </section>
+    </section>
+    <% } %>
+
+    <details name="event-admin">
+      <summary role="button">Edit event details</summary>
 
     <!-- Edit Event Details Section -->
     <div class="form-section">
@@ -73,8 +117,11 @@
         <button type="submit" class="action-button">Update Event Details</button>
       </form>
     </div>
-    <hr style="margin: 20px 0;">
+     </details>
+   <hr style="margin: 20px 0;">
 
+
+   <!--
     <p class="date">Current Start Date & Time (Server Local): <%= new Date(event.date).toLocaleString() %></p>
     <% if (event.date_end) { %>
       <p class="date">Current End Date & Time (Server Local): <%= new Date(event.date_end).toLocaleString() %></p>
@@ -94,23 +141,7 @@
       <p class="description">Current Description: <%- event.description %></p>
     <% } %>
 
-
-    <!-- RSVP Summary Section -->
-    <% if (typeof attendeeStats !== 'undefined') { %>
-    <div class="form-section">
-      <h2>RSVP Summary</h2>
-      <div class="summary-grid">
-        <div class="summary-item"><strong>Potential Guests:</strong> <%= attendeeStats.potentialGuests %></div>
-        <div class="summary-item"><strong>Invites Not Sent:</strong> <%= attendeeStats.guestsNotSent %></div>
-        <div class="summary-item"><strong>Invites Sent:</strong> <%= attendeeStats.guestsInvited %></div>
-      </div><div class="summary-grid">  <%# is there a better way to do this? %>
-        <div class="summary-item"><strong>Awaiting Reply:</strong> <%= attendeeStats.guestsAwaitingReply %></div>
-        <div class="summary-item"><strong>Attending:</strong> <%= attendeeStats.guestsAttending %></div>
-        <div class="summary-item"><strong>Not Attending:</strong> <%= attendeeStats.guestsNotAttending %></div>
-      </div>
-    </div>
-    <hr style="margin: 20px 0;">
-    <% } %>
+-->
 
     <div class="form-section">
       <form action="/admin/events/<%= event.id %>/send-invites" method="POST" style="margin-bottom: 20px;">
