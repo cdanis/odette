@@ -7,7 +7,7 @@
   <!-- DataTables CSS -->
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
   <%- include('admin-preload'); %>
-  <link rel="stylesheet" href="/static/admin.css"> <!-- TODO -->
+
 </head>
 
 <body>
@@ -32,6 +32,10 @@
         color:var(--pico-muted-color);
         font-size:.875rem;
         text-align:center
+      }
+
+      details[open] > summary {
+        margin-bottom: 0;
       }
     </style>
     <!-- RSVP Summary Section -->
@@ -65,12 +69,11 @@
     </section>
     <% } %>
 
-    <details name="event-admin">
+    <details>
       <summary role="button">Edit event details</summary>
 
     <!-- Edit Event Details Section -->
-    <div class="form-section">
-      <h2>Edit Event Details</h2>
+    <article>
       <% if (locals.error) { %>
         <p style="color: red;"><%= locals.error %></p>
       <% } %>
@@ -116,12 +119,12 @@
         </div>
         <button type="submit" class="action-button">Update Event Details</button>
       </form>
-    </div>
+    </article>
      </details>
-   <hr style="margin: 20px 0;">
 
 
    <!--
+   <hr style="margin: 20px 0;">
     <p class="date">Current Start Date & Time (Server Local): <%= new Date(event.date).toLocaleString() %></p>
     <% if (event.date_end) { %>
       <p class="date">Current End Date & Time (Server Local): <%= new Date(event.date_end).toLocaleString() %></p>
@@ -141,7 +144,6 @@
       <p class="description">Current Description: <%- event.description %></p>
     <% } %>
 
--->
 
     <div class="form-section">
       <form action="/admin/events/<%= event.id %>/send-invites" method="POST" style="margin-bottom: 20px;">
@@ -156,13 +158,12 @@
     </div>
 
 
-    <!-- Attendees Section -->
-    <div class="form-section">
-      <h2>Attendees for <%= event.title %></h2>
+-->
 
-      <div class="grid-container">
-        <div>
-          <h3>Add Attendee</h3>
+    <details >
+      <summary role="button">Invite someone</summary>
+    <!-- Attendees Section -->
+     <article>
           <form action="/admin/attendee" method="POST">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <input type="hidden" name="event_id" value="<%= event.id %>" />
@@ -180,15 +181,18 @@
             <input type="number" id="party_size_single" name="party_size" value="1" min="1" required />
             <button type="submit">Add Attendee</button>
           </form>
-        </div>
-      </div>
+        </article>
+    </details>
 
+    <details>
+      <summary role="button">Invite many people</summary>
+      <article>
       <!-- Parse Email Addresses from "To:" Field -->
       <div class="mt-20 mb-20">
         <h3>Parse Email Addresses from "To:" Field</h3>
         <p class="text-muted" style="font-size: 0.9em; margin-bottom: 10px;">
           Paste a list of email recipients (e.g., from an email's "To:" or "Cc:" field).<br>
-          Each will be added with a party size of 1. Deduplicates based on email address for this event.<br>
+          Each will be added with a party size of 1. Deduplicates based on email address.<br>
         </p>
         <form action="/admin/event/<%= event.id %>/attendees/parse-emails" method="POST">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -197,6 +201,8 @@
           <button type="submit">Parse and Add Attendees</button>
         </form>
       </div>
+      </article></details>
+
       <!-- END NEW FORM SECTION -->
 
       <% if (allEvents.length > 0) { %>
