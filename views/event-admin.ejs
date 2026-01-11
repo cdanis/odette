@@ -186,7 +186,7 @@
                   <% if (!attendee.rsvp) { %>
                     <form action="/admin/attendee/<%= attendee.id %>/update-party-size" method="POST" class="party-size-form" style="display: inline-flex; align-items: center;">
                       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                      <input type="number" name="party_size" value="<%= attendee.party_size %>" min="1" required style="width: 60px; margin-right: 5px;">
+                      <input type="number" name="party_size" value="<%= attendee.party_size %>" min="1" required style="width: 5em;">
                       <button type="submit">Update</button>
                     </form>
                   <% } else { %>
