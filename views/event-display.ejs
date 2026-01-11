@@ -1,0 +1,82 @@
+<%# Event Preview Card: this includes an <article> start tag but not the end tag %>
+
+<%
+  // Normalize data: support both 'event' object (from admin) and 'attendee' object (from rsvp)
+  // with event data prefixed as event_*
+  const eventData = locals.event || {
+    id: locals.attendee?.event_id,
+    title: locals.attendee?.event_title,
+    date: locals.attendee?.event_date,
+    date_end: locals.attendee?.event_date_end,
+    description: locals.attendee?.event_desc,
+    banner_image_filename: locals.attendee?.event_banner_image_filename,
+    location_name: locals.attendee?.event_location_name,
+    location_href: locals.attendee?.event_location_href,
+    timezone: locals.attendee?.event_timezone
+  };
+  
+  const showIcsDownload = locals.showIcsDownload || false;
+  const token = locals.token || locals.attendee?.token;
+  const timeElementId = locals.timeElementId || 'event-start-time';
+  const endTimeElementId = locals.endTimeElementId || 'event-end-time';
+%>
+
+<% if (eventData.banner_image_filename) { %>
+  <% if (locals.bannerClass) { %>
+    <img src="/uploads/event-banners/<%= eventData.banner_image_filename %>" 
+         alt="<%= eventData.title %> Banner" 
+         class="<%= locals.bannerClass %>">
+  <% } else { %>
+    <figure>
+      <img src="/uploads/event-banners/<%= eventData.banner_image_filename %>" 
+           alt="<%= eventData.title %> Banner" 
+           class="event-banner">
+    </figure>
+  <% } %>
+<% } %>
+
+<article>
+<header>
+  <h2><%= eventData.title %></h2>
+</header>
+
+<section>
+  <% if (showIcsDownload && token) { %>
+    <div class="add-to-calendar-container" style="margin-top: 0; margin-bottom: 0.5rem;">
+      <a href="/ics/<%= token %>" role="button" download>
+        <span>📅 Add to Calendar</span>
+      </a>
+    </div>
+  <% } %>
+  
+  <div style="padding-bottom: 0.33rem;">
+    <div>
+      <span id="<%= timeElementId %>" class="local-datetime" data-timestamp="<%= eventData.date %>">
+        <%= new Date(eventData.date).toLocaleString() %>
+      </span>
+      <% if (eventData.date_end) { %>
+        <span> to </span>
+        <span id="<%= endTimeElementId %>" class="local-datetime" data-timestamp="<%= eventData.date_end %>">
+          <%= new Date(eventData.date_end).toLocaleString() %>
+        </span>
+      <% } %>
+    </div>
+    <% if (eventData.location_name || eventData.location_href) { %>
+      <div>
+        <% if (eventData.location_href) { %>
+          <a href="<%= eventData.location_href %>" target="_blank">
+            <%= eventData.location_name || 'Location' %>
+          </a>
+        <% } else { %>
+          <%= eventData.location_name %>
+        <% } %>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<% if (eventData.description) { %>
+  <section>
+    <p class="description"><%- eventData.description %></p>
+  </section>
+<% } %>

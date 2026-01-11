@@ -38,10 +38,14 @@
     }
     
     .current-banner-image {
-      max-width: 100%;
-      max-height: 200px;
-      margin: 1rem 0;
-      border-radius: var(--pico-border-radius);
+      /* max-width: 100%;
+      max-height: 200px; */
+      max-width: 40vw;
+      max-height: 33vh;  /* TODO: it should be allowed to grow to the size of its parent if the parent fits? */
+      object-fit: contain;
+      width: 100%;
+      /*margin: 1rem 0;
+      border-radius: var(--pico-border-radius); */
     }
     
     dialog article {
@@ -72,48 +76,27 @@
       <p style="color: var(--pico-color-red-500);"><%= locals.error %></p>
     <% } %>
 
-    <!-- Event Preview Card (as invitees see it) -->
-    <article>
-      <% if (event.banner_image_filename) { %>
-        <img src="/uploads/event-banners/<%= event.banner_image_filename %>" alt="<%= event.title %> Banner" class="current-banner-image">
-      <% } %>
-      
-      <header>
-        <h2><%= event.title %></h2>
-      </header>
-      
-      <section>
-        <div style="padding-bottom: 0.33rem;">
-          <div>
-            <span id="event-preview-time" class="local-datetime" data-timestamp="<%= event.date %>">
-              <%= new Date(event.date).toLocaleString() %>
-            </span>
-          </div>
-          <% if (event.location_name || event.location_href) { %>
-            <div>
-              <% if (event.location_href) { %>
-                <a href="<%= event.location_href %>" target="_blank">
-                  <%= event.location_name || 'Location' %>
-                </a>
-              <% } else { %>
-                <%= event.location_name %>
-              <% } %>
-            </div>
-          <% } %>
-        </div>
-      </section>
-      
-      <% if (event.description) { %>
-        <section>
-          <p class="description"><%- event.description %></p>
-        </section>
-      <% } %>
+    <style>
+      article[class="grid"] > article {
+        margin-bottom: 0;
+      }
+    </style>
+    <section>
+    <article class="grid" style="margin-bottom: 0;">
+<%# Event Preview Card: this includes an <article> start tag but not the end tag %>
+      <%- include('event-display', { 
+          event: event, 
+          showIcsDownload: false,
+          timeElementId: 'event-preview-time',
+          endTimeElementId: 'event-preview-end-time',
+          bannerClass: 'current-banner-image'
+      }) %>
       
       <footer>
         <button onclick="openEditEventModal()">✏️ Edit Event Details</button>
       </footer>
     </article>
-
+  </section>
 
     <!-- RSVP Summary Section -->
     <% if (typeof attendeeStats !== 'undefined') { %>

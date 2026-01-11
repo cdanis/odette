@@ -25,48 +25,13 @@
 <body>
     <main class="container">
         <div class="grid">
-            <% if (attendee.event_banner_image_filename) { %>
-                <figure><img src="/uploads/event-banners/<%= attendee.event_banner_image_filename %>"
-                        alt="<%= attendee.event_title %> Banner" class="event-banner"></figure>
-            <% } %>
-
-            <article>
-                <header>
-                    <h2>
-                        <%= attendee.event_title %>
-                    </h2>
-                </header>
-                <section>
-                <div class="add-to-calendar-container" style="margin-top: 0; margin-bottom: 0.5rem;">
-                    <a href="/ics/<%= attendee.token %>" role="button" download>
-                        <span>📅 Add to Calendar</span>
-                    </a>
-                </div>
-                <div style="padding-bottom: 0.33rem;">
-                    <div>
-                        <span id="event-start-time" class="local-datetime"
-                            data-timestamp="<%= attendee.event_date %>">
-                            <%= new Date(attendee.event_date).toLocaleString() %>
-                        </span>
-                    </div>
-                    <div>
-                        <% if (attendee.event_location_name || attendee.event_location_href) { %>
-                            <% if (attendee.event_location_href) { %>
-                                <a href="<%= attendee.event_location_href %>" target="_blank">
-                                    <%= attendee.event_location_name || 'Location' %>
-                                </a>
-                            <% } else { %>
-                                <%= attendee.event_location_name %>
-                            <% } %>
-                        <% } %>
-                    </div>
-                </div>
-            </section>
-            <% if (attendee.event_desc) { %>
-                <section>
-                    <p class="description"><%- attendee.event_desc %></p>
-                </section>
-            <% } %>
+<%# Event Preview Card: this includes an <article> start tag but not the end tag %>
+            <%- include('event-display', { 
+                attendee: attendee, 
+                showIcsDownload: true,
+                timeElementId: 'event-start-time',
+                endTimeElementId: 'event-end-time'
+            }) %>
             <hr />
             <section>
                 <form action="/rsvp/<%= attendee.token %>" method="POST" class="rsvp-form">
