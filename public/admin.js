@@ -105,30 +105,35 @@ function showConfirmModal(message, onConfirm) {
 // Document Ready
 // ============================================================================
 
+/**
+ * Initialize datetime-local inputs from data-timestamp attributes
+ */
+function initializeDateInputs(form) {
+  const dateInput = form.querySelector('input[name="date"]');
+  const dateEndInput = form.querySelector('input[name="date_end"]');
+  
+  if (dateInput && dateInput.dataset.timestamp) {
+    const timestamp = dateInput.dataset.timestamp;
+    if (timestamp && timestamp !== 'null' && timestamp !== 'undefined' && !isNaN(Number(timestamp))) {
+      dateInput.value = formatDateToLocalInputString(new Date(Number(timestamp)));
+    }
+  }
+  
+  if (dateEndInput && dateEndInput.dataset.timestamp) {
+    const timestampEnd = dateEndInput.dataset.timestamp;
+    if (timestampEnd && timestampEnd !== 'null' && timestampEnd !== 'undefined' && !isNaN(Number(timestampEnd))) {
+      dateEndInput.value = formatDateToLocalInputString(new Date(Number(timestampEnd)));
+    }
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   // Initialize event form date handlers
   const eventForms = document.querySelectorAll('#createEventForm, #editEventForm');
   eventForms.forEach(form => {
     if (form) {
       form.addEventListener('submit', handleSubmitEventForm);
-      
-      // Populate datetime-local inputs with existing values
-      const dateInput = form.querySelector('input[name="date"]');
-      const dateEndInput = form.querySelector('input[name="date_end"]');
-      
-      if (dateInput && dateInput.dataset.timestamp) {
-        const timestamp = dateInput.dataset.timestamp;
-        if (timestamp && timestamp !== 'null' && timestamp !== 'undefined' && !isNaN(Number(timestamp))) {
-          dateInput.value = formatDateToLocalInputString(new Date(Number(timestamp)));
-        }
-      }
-      
-      if (dateEndInput && dateEndInput.dataset.timestamp) {
-        const timestampEnd = dateEndInput.dataset.timestamp;
-        if (timestampEnd && timestampEnd !== 'null' && timestampEnd !== 'undefined' && !isNaN(Number(timestampEnd))) {
-          dateEndInput.value = formatDateToLocalInputString(new Date(Number(timestampEnd)));
-        }
-      }
+      initializeDateInputs(form);
     }
   });
 

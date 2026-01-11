@@ -1,0 +1,86 @@
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/dayjs.min.js"
+    integrity="sha512-FwNWaxyfy2XlEINoSnZh1JQ5TRRtGow0D6XcmAWmYCRgvqOUTnzCxPc9uF35u5ZEpirk1uhlPVA19tflhvnW1g=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/utc.min.js"
+    integrity="sha512-z84O912dDT9nKqvpBnl1tri5IN0j/OEgMzLN1GlkpKLMscs5ZHVu+G2CYtA6dkS0YnOGi3cODt3BOPnYc8Agjg=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/timezone.min.js"
+    integrity="sha512-nrkE2nl0pcqWefIY627DY1exPOSuZXMdOrxMxX0y7Ly6RH8K0WDjO1lqakkxQcX5m8hxoUSt75seRRiyhqPvIw=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/localizedFormat.min.js"
+    integrity="sha512-vjS0MkqX58pv35Mv03gzee3TSJ74Gg5lPkgel1V8czy+sTX/ZoFMs/FqnGzWpf3IV+Ry3/mJ0i9nANcjKk1fBg=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/isSameOrBefore.min.js"
+    integrity="sha512-QrDN35Hb2sRTjFOKNIMLrX6SrjsJBlBE1+WAZnXJPEfGlYiPRgmN8oE9Uvz/5S+h55lmp/Jsiq1gHfCDAquXWA=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dayjs/1.11.13/plugin/isSameOrAfter.min.js"
+    integrity="sha512-8gn84sM7ampZwKjmwm8+y8/FpiPbFVgJGqR5Aio1Lx2T08tEvmJQ5ffLWQFnjDkD/c4kzxebsVtJFswTIvvT+g=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof dayjs === 'undefined') {
+      console.error('Day.js library is not loaded. Date formatting will use browser defaults.');
+      return;
+    }
+
+    // Extend dayjs with necessary plugins
+    dayjs.extend(dayjs_plugin_utc);
+    dayjs.extend(dayjs_plugin_timezone);
+    dayjs.extend(dayjs_plugin_localizedFormat);
+    dayjs.extend(dayjs_plugin_isSameOrBefore);
+    dayjs.extend(dayjs_plugin_isSameOrAfter);
+
+    // Format all .local-datetime elements
+    const dateElements = document.querySelectorAll('.local-datetime');
+    console.log('Found', dateElements.length, 'elements with .local-datetime class');
+    
+    dateElements.forEach(el => {
+      const timestamp = el.dataset.timestamp;
+      console.log('Processing element:', el.id, 'timestamp:', timestamp);
+      
+      if (!timestamp || isNaN(Number(timestamp))) {
+        console.error('Invalid or missing timestamp:', timestamp);
+        return;
+      }
+
+      const date = dayjs(Number(timestamp));
+      if (!date.isValid()) {
+        console.error('Parsed date is invalid. Timestamp:', timestamp);
+        return;
+      }
+
+      // Check if this is an end time element by walking back through siblings
+      let startElement = null;
+      let currentSibling = el.previousSibling;
+      
+      while (currentSibling) {
+        if (currentSibling.nodeType === Node.ELEMENT_NODE && 
+            currentSibling.classList && 
+            currentSibling.classList.contains('local-datetime')) {
+          startElement = currentSibling;
+          break;
+        }
+        currentSibling = currentSibling.previousSibling;
+      }
+      
+      if (startElement) {
+        // Get the start date
+        const startTimestamp = startElement.dataset.timestamp;
+        if (startTimestamp && !isNaN(Number(startTimestamp))) {
+          const startDate = dayjs(Number(startTimestamp));
+          if (startDate.isValid() && startDate.isSame(date, 'day')) {
+            // Same day - show only time
+            console.log('End time on same day, showing time only');
+            el.textContent = date.format('LT');
+            return;
+          }
+        }
+      }
+      
+      // Default format: full date and time
+      console.log('Formatting as full date:', date.format('dddd, MMMM D, YYYY LT'));
+      el.textContent = date.format('dddd, MMMM D, YYYY LT');
+    });
+  });
+</script>

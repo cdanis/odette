@@ -434,6 +434,7 @@
   <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
   <!-- DataTables JS -->
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <%- include('date-formatter-script') %>
   <!-- Admin JS -->
   <script src="/static/admin.js"></script>
 
@@ -448,7 +449,13 @@
 
     // Modal functions - Edit Event
     function openEditEventModal() {
-      document.getElementById('editEventModal').showModal();
+      const modal = document.getElementById('editEventModal');
+      const form = modal.querySelector('form');
+      
+      // Initialize date inputs from data-timestamp attributes
+      initializeDateInputs(form);
+      
+      modal.showModal();
     }
     function closeEditEventModal() {
       document.getElementById('editEventModal').close();
