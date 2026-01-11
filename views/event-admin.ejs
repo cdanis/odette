@@ -262,7 +262,7 @@
       <% } %>
 
   <!-- Edit Event Details Modal -->
-  <dialog id="editEventModal">
+  <dialog id="editEventModal" onclick="if (event.target === this) closeEditEventModal()">
     <article>
       <header>
         <button aria-label="Close" rel="prev" onclick="closeEditEventModal()"></button>
@@ -314,7 +314,7 @@
           <input type="file" name="banner_image" accept="image/png, image/jpeg, image/gif">
         </label>
         
-        <footer>
+        <footer class="grid">
           <button type="button" class="secondary" onclick="closeEditEventModal()">Cancel</button>
           <button type="submit">Update Event</button>
         </footer>
@@ -323,7 +323,7 @@
   </dialog>
 
   <!-- Attendee Modal (Add/Edit) -->
-  <dialog id="attendeeModal">
+  <dialog id="attendeeModal" onclick="if (event.target === this) closeAttendeeModal()">
     <article>
       <header>
         <button aria-label="Close" rel="prev" onclick="closeAttendeeModal()"></button>
@@ -368,7 +368,7 @@
   </dialog>
 
   <!-- Import Contacts Modal -->
-  <dialog id="importContactsModal">
+  <dialog id="importContactsModal" onclick="if (event.target === this) closeImportContactsModal()">
     <article>
       <header>
         <button aria-label="Close" rel="prev" onclick="closeImportContactsModal()"></button>
@@ -376,7 +376,7 @@
       </header>
       
       <details name="multi-add">
-        <summary role="button">Parse from Email</summary>
+        <summary role="button" class="primary outline">Parse from Email</summary>
         <p><small>Paste a list of email recipients (like from an email's "To:" or "Cc:" field). Each will be added as a separate attendee with a party size of 1.</small></p>
         <form action="/admin/event/<%= event.id %>/attendees/parse-emails" method="POST">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -389,7 +389,7 @@
       </details>
       
       <details name="multi-add">
-        <summary role="button">Upload CSV/TSV File</summary>
+        <summary role="button" class="primary outline">Upload CSV/TSV File</summary>
         <p><small>Upload a CSV or TSV file with attendees. Each row should have at least one email address. The first non-email column will be used as the name.</small></p>
         <form action="/admin/event/<%= event.id %>/attendees/upload-csv" method="POST" enctype="multipart/form-data">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -403,7 +403,7 @@
       
       <% if (allEvents.length > 0) { %>
       <details name="multi-add">
-        <summary role="button">Copy from Another Event</summary>
+        <summary role="button" class="primary outline">Copy from Another Event</summary>
         <form action="/admin/attendees/copy" method="POST">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" name="to_event" value="<%= event.id %>" />
@@ -419,10 +419,6 @@
         </form>
       </details>
       <% } %>
-      
-      <footer>
-        <button type="button" class="secondary" onclick="closeImportContactsModal()">Close</button>
-      </footer>
     </article>
   </dialog>
 
