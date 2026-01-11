@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 Chris Danis
+
 // src/utils.ts
 // Pure utility functions with no dependencies on Express or database
 

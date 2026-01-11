@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2025 Chris Danis
+
 import { generateToken, isValidToken, deriveNameFromEmail, parseCsvTsvLine } from '../src/utils';
 
 describe('generateToken', () => {
