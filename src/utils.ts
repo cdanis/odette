@@ -114,3 +114,34 @@ export function getTimezones(): string[] {
     ];
   }
 }
+
+/**
+ * Derive a display name from a parsed email address
+ * If a name is provided, use it; otherwise derive from email username
+ * Strips periods, quotes, and apostrophes from derived names
+ * 
+ * @param parsedAddress Object with optional name and address fields
+ * @returns Derived display name
+ */
+export function deriveNameFromEmail(parsedAddress: { name?: string; address?: string }): string {
+  if (parsedAddress.name) {
+    return parsedAddress.name;
+  }
+  
+  if (!parsedAddress.address) {
+    return '';
+  }
+  
+  const email = parsedAddress.address;
+  const atIndex = email.lastIndexOf('@');
+  
+  if (atIndex === -1) {
+    return email; // Malformed email, return as-is
+  }
+  
+  // Extract username part and clean it up
+  return email
+    .substring(0, atIndex)
+    .replace(/[."']/g, ' ')
+    .trim();
+}

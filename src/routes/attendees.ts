@@ -6,6 +6,7 @@ import type { Request, Response } from 'express';
 import addressparser from 'addressparser';
 import { getDatabase, upsertAttendee, type EventRecord } from '../database';
 import { sendInvitation } from '../notifications';
+import { deriveNameFromEmail } from '../utils';
 
 const router = Router();
 
@@ -152,9 +153,8 @@ router.post('/event/:eventId/attendees/parse-emails', (req: Request, res: Respon
     const parsedAddresses = addressparser(emailFieldData);
     parsedAddresses.forEach(parsed => {
       if (parsed.address) {
-        const email = parsed.address;
-        const name = parsed.name || email.substring(0, email.lastIndexOf('@')).replace(/[."']/g, ' ').trim();
-        upsertAttendee(eventId, name, email, 1, []); 
+        const name = deriveNameFromEmail(parsed);
+        upsertAttendee(eventId, name, parsed.address, 1, []); 
       }
     });
   } catch (error) {

@@ -223,6 +223,12 @@ export function upsertAttendee(
     let updateQuery = 'UPDATE attendees SET last_modified=?';
     const updateParams: (number | string | null)[] = [now];
 
+    // Update name if provided
+    if (name) {
+      updateQuery += ', name=?';
+      updateParams.push(name);
+    }
+
     if (rsvpStatus && rsvpStatus.rsvp === null) { // Only update party size if no RSVP yet
       if (party_size !== undefined && existing.party_size !== finalPartySize) {
         updateQuery += ', party_size=?';
@@ -241,13 +247,8 @@ export function upsertAttendee(
     
     updateParams.push(attendeeId);
 
-    // Only run update if there's something to change besides last_modified
-    if (updateQuery !== 'UPDATE attendees SET last_modified=?') {
-      db.prepare(`${updateQuery} WHERE id=?`).run(...updateParams);
-    } else { 
-      // If only last_modified needs update (nothing else changed), still run an update for last_modified.
-      db.prepare('UPDATE attendees SET last_modified=? WHERE id=?').run(now, attendeeId);
-    }
+    // Run update (last_modified always updates, other fields conditionally)
+    db.prepare(`${updateQuery} WHERE id=?`).run(...updateParams);
   } else {
     const { generateToken } = require('./utils');
     const token = generateToken();
