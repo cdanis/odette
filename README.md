@@ -7,7 +7,7 @@ Event invitation and RSVP management system built for self-hosting.
 - Create events with details (date, location, description, banner images)
 - Manage guest lists
 - Send email invitations with unique RSVP links
-- Generate ICS calendar files
+- "Add to calendar" button yielding ICS calendar files
 - Track responses (yes/no/pending)
 - Optional push notifications (via ntfy.sh)
 
@@ -15,7 +15,7 @@ Each guest gets a unique link — no login required to RSVP.
 
 ## Self-Hosting
 
-Odette is designed to be run on your own infrastructure. Admin routes (`/admin/*`) have **no built-in authentication** — they're meant to be protected by an authenticating reverse proxy (nginx, Caddy, Tailscale, etc.).
+Odette is designed to be run on your own infrastructure. Admin routes (`/admin/*`) have **no built-in authentication** — they're meant to be protected by an authenticating reverse proxy (nginx, Caddy, oauth2-proxy, etc.).
 
 Multi-tenancy / event admin logins are not currently implemented (see Roadmap).
 
