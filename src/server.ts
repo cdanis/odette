@@ -19,7 +19,7 @@
 import express from 'express';
 import * as path from 'path';
 import * as bodyParser from 'body-parser';
-import session from 'express-session';
+import cookieSession from 'cookie-session';
 import csurf from 'csurf';
 import multer from 'multer';
 import fs from 'fs';
@@ -68,11 +68,13 @@ try {
   console.error(`Error creating upload directory ${EVENT_BANNER_STORAGE_PATH}:`, err);
 }
 
-// Session middleware
-app.use(session({
+// Session middleware (cookie-based, signed)
+app.use(cookieSession({
+  name: 'session',
   secret: SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
+  maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  httpOnly: true,
+  sameSite: 'lax',
 }));
 
 // CSRF protection middleware
