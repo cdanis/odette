@@ -23,17 +23,71 @@ interface InviteeWithEventIdAndEmails {
 }
 
 // ============================================================================
+// Helper functions
+// ============================================================================
+
+/**
+ * Parse additional_emails JSON field and return CC email list
+ * @param additionalEmailsJson JSON string from database
+ * @param primaryEmail Primary email to exclude from CC list
+ * @param attendeeId Attendee ID for error logging
+ * @returns Array of CC email addresses
+ */
+export function parseCCEmails(additionalEmailsJson: string | null, primaryEmail: string, attendeeId: number): string[] {
+  if (!additionalEmailsJson) return [];
+  
+  try {
+    const parsed = JSON.parse(additionalEmailsJson);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .map(e => String(e).trim().toLowerCase())
+        .filter(e => e && e !== primaryEmail);
+    }
+  } catch (e) {
+    console.error(`Error parsing additional_emails for attendee ${attendeeId}:`, e);
+  }
+  
+  return [];
+}
+
+/**
+ * Send invitation to an attendee and mark as sent
+ * @param attendee Attendee record with email and token
+ * @param event Event record
+ * @param appBaseUrl Base URL for RSVP links
+ * @returns Promise that resolves when invitation is sent
+ */
+export async function sendAndMarkInvitation(
+  attendee: InviteeWithEventIdAndEmails,
+  event: EventRecord,
+  appBaseUrl: string
+): Promise<void> {
+  const db = getDatabase();
+  const primaryEmail = attendee.email?.trim().toLowerCase();
+  
+  if (!primaryEmail) {
+    throw new Error(`Primary email missing for attendee ID ${attendee.id}`);
+  }
+  
+  const ccEmails = parseCCEmails(attendee.additional_emails, primaryEmail, attendee.id);
+  
+  await sendInvitation(attendee.name, primaryEmail, ccEmails, attendee.token, event, appBaseUrl);
+  db.prepare('UPDATE attendees SET is_sent=1, last_modified=? WHERE id=?').run(Date.now(), attendee.id);
+}
+
+// ============================================================================
 // Attendee CRUD Operations
 // ============================================================================
 
 /**
  * Add a single attendee
  */
-router.post('/attendee', (req: Request, res: Response) => {
+router.post('/attendee', async (req: Request, res: Response) => {
   const eventId = +req.body.event_id;
   const partySize = parseInt(req.body.party_size, 10);
   const primaryEmail = req.body.email;
   const additionalEmailsRaw = req.body.additional_emails || '';
+  const sendInvite = req.body.send_invite === '1';
   
   let additionalEmailsList: string[] = [];
   if (additionalEmailsRaw && typeof additionalEmailsRaw === 'string') {
@@ -44,6 +98,27 @@ router.post('/attendee', (req: Request, res: Response) => {
   }
 
   upsertAttendee(eventId, req.body.name, primaryEmail, isNaN(partySize) || partySize < 1 ? 1 : partySize, additionalEmailsList);
+  
+  // Send invitation if checkbox was checked
+  if (sendInvite) {
+    const db = getDatabase();
+    const attendee = db.prepare('SELECT id, name, email, token, additional_emails FROM attendees WHERE event_id=? AND email=?')
+      .get(eventId, primaryEmail.trim().toLowerCase()) as InviteeWithEventIdAndEmails | undefined;
+    
+    if (attendee) {
+      const event = db.prepare('SELECT * FROM events WHERE id = ?').get(eventId) as EventRecord | undefined;
+      if (event) {
+        try {
+          const appBaseUrl = req.app.locals.APP_BASE_URL || `http://localhost:${process.env.PORT || '3000'}`;
+          await sendAndMarkInvitation(attendee, event, appBaseUrl);
+        } catch (error) {
+          console.error(`Failed to send invitation for newly added attendee ${attendee.id}:`, error);
+          // Continue redirect even if send fails
+        }
+      }
+    }
+  }
+  
   res.redirect(`/admin/${eventId}`);
 });
 
@@ -285,31 +360,9 @@ router.post('/attendees/send/:attendeeId', async (req: Request, res: Response) =
     return;
   }
 
-  const primaryEmail = a.email?.trim().toLowerCase();
-  if (!primaryEmail) {
-    console.warn(`Primary email missing for attendee ID ${attendeeId}. Cannot send invite.`);
-    res.redirect(`/admin/${a.event_id}?error=${encodeURIComponent('Primary email missing for attendee to send invite.')}`);
-    return;
-  }
-
-  let ccEmails: string[] = [];
-  if (a.additional_emails) {
-    try {
-      const parsedAdditional = JSON.parse(a.additional_emails);
-      if (Array.isArray(parsedAdditional)) {
-        ccEmails = parsedAdditional
-          .map(e => String(e).trim().toLowerCase())
-          .filter(e => e && e !== primaryEmail);
-      }
-    } catch (e) {
-      console.error(`Error parsing additional_emails for attendee ${a.id}:`, e);
-    }
-  }
-
   try {
     const appBaseUrl = req.app.locals.APP_BASE_URL || `http://localhost:${process.env.PORT || '3000'}`;
-    await sendInvitation(a.name, primaryEmail, ccEmails, a.token, event, appBaseUrl);
-    db.prepare('UPDATE attendees SET is_sent=1, last_modified=? WHERE id=?').run(Date.now(), attendeeId);
+    await sendAndMarkInvitation(a, event, appBaseUrl);
   } catch (error) {
     const errorMessage = encodeURIComponent('Failed to send invitation. Check server logs.');
     res.redirect(`/admin/${a.event_id}?error=${errorMessage}`);
@@ -341,32 +394,11 @@ router.post('/events/:eventId/send-invites', async (req: Request, res: Response)
   const appBaseUrl = req.app.locals.APP_BASE_URL || `http://localhost:${process.env.PORT || '3000'}`;
   
   for (const a of pending) {
-    const primaryEmail = a.email?.trim().toLowerCase();
-    if (!primaryEmail) {
-      console.warn(`Primary email missing for attendee ID ${a.id} during batch send. Skipping.`);
-      continue; 
-    }
-
-    let ccEmails: string[] = [];
-    if (a.additional_emails) {
-      try {
-        const parsedAdditional = JSON.parse(a.additional_emails);
-        if (Array.isArray(parsedAdditional)) {
-          ccEmails = parsedAdditional
-            .map(e => String(e).trim().toLowerCase())
-            .filter(e => e && e !== primaryEmail);
-        }
-      } catch (e) {
-        console.error(`Error parsing additional_emails for attendee ${a.id} during batch send:`, e);
-      }
-    }
-    
     try {
-      await sendInvitation(a.name, primaryEmail, ccEmails, a.token, event, appBaseUrl);
-      db.prepare('UPDATE attendees SET is_sent=1, last_modified=? WHERE id=?').run(now, a.id);
+      await sendAndMarkInvitation(a, event, appBaseUrl);
     } catch (sendError) {
       overallSuccess = false;
-      console.error(`Failed to send batch invite for attendee ${a.id} (To: ${primaryEmail}, CC: ${ccEmails.join(', ')}). Continuing with others.`);
+      console.error(`Failed to send batch invite for attendee ${a.id}. Continuing with others.`, sendError);
     }
   }
 

@@ -8,225 +8,161 @@
   <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
   <%- include('admin-preload'); %>
 
+  <style>
+    article.rsvp-summary > .grid > div {
+      padding: calc(var(--pico-spacing) / 2) 0;
+      border-radius: var(--pico-border-radius);
+      background-color: var(--pico-code-background-color);
+      color: var(--pico-muted-color);
+      font-size: .875rem;
+      text-align: center;
+    }
+    
+    .email-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 0.25rem;
+    }
+    
+    .btn-icon {
+      padding: 0.25rem 0.5rem;
+      font-size: 1rem;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    
+    .current-banner-image {
+      max-width: 100%;
+      max-height: 200px;
+      margin: 1rem 0;
+      border-radius: var(--pico-border-radius);
+    }
+    
+    dialog article {
+      max-width: 600px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    
+    dialog h3 {
+      margin-top: 0;
+    }
+  </style>
 </head>
 
 <body>
   <header class="container">
     <h1>💌 odette.rsvp</h1>
-  <nav aria-label="breadcrumb">
-    <ul>
-      <li><a href="/admin">My events</a></li>
-      <li><%= event.title %></li>
-    </ul>
-  </nav>
+    <nav aria-label="breadcrumb">
+      <ul>
+        <li><a href="/admin">My events</a></li>
+        <li><%= event.title %></li>
+      </ul>
+    </nav>
   </header>
 
   <main class="container">
+    <% if (locals.error) { %>
+      <p style="color: var(--pico-color-red-500);"><%= locals.error %></p>
+    <% } %>
 
-
-    <style>
-      article.rsvp-summary > .grid > div {
-        padding:calc(var(--pico-spacing)/ 2) 0;
-        border-radius:var(--pico-border-radius);
-        background-color:var(--pico-code-background-color);
-        color:var(--pico-muted-color);
-        font-size:.875rem;
-        text-align:center
-      }
-
-      details[open] > summary {
-        margin-bottom: 0;
-      }
-    </style>
-
-    <details>
-      <summary role="button">Edit event details</summary>
-
-    <!-- Edit Event Details Section -->
+    <!-- Event Preview Card (as invitees see it) -->
     <article>
-      <% if (locals.error) { %>
-        <p style="color: red;"><%= locals.error %></p>
+      <% if (event.banner_image_filename) { %>
+        <img src="/uploads/event-banners/<%= event.banner_image_filename %>" alt="<%= event.title %> Banner" class="current-banner-image">
       <% } %>
-      <form action="/admin/event/<%= event.id %>/update" method="POST" enctype="multipart/form-data" id="editEventForm">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <div>
-          <label for="title">Event Title:</label>
-          <input type="text" id="title" name="title" value="<%= event.title %>" required />
-        </div>
-        <div>
-          <label for="date">Start Date & Time:</label>
-          <input type="datetime-local" id="date" name="date" data-timestamp="<%= event.date %>" required />
-        </div>
-        <div>
-          <label for="date_end">End Date & Time (Optional):</label>
-          <input type="datetime-local" id="date_end" name="date_end" data-timestamp="<%= event.date_end %>" />
-        </div>
-        <div>
-          <%- include('timezone-select', { labelText: 'Event Timezone', inputId: 'timezone', selectedTimezone: event.timezone }); %>
-        </div>
-        <div>
-          <label for="location_name">Location Name (Optional):</label>
-          <input type="text" id="location_name" name="location_name" value="<%= event.location_name || '' %>" />
-        </div>
-        <div>
-          <label for="location_href">Location URL (Optional):</label>
-          <input type="url" id="location_href" name="location_href" value="<%= event.location_href || '' %>" placeholder="https://maps.example.com/..." />
-        </div>
-        <div>
-          <label for="description">Description:</label>
-          <textarea id="description" name="description" rows="3"><%= event.description || '' %></textarea>
-        </div>
-        <div>
-          <label for="banner_image">Event Banner Image (Optional):</label>
-          <% if (event.banner_image_filename) { %>
-            <p>Current Banner:</p>
-            <img src="/uploads/event-banners/<%= event.banner_image_filename %>" alt="Current Event Banner" class="current-banner-image">
-            <p><small>Uploading a new image will replace the current one.</small></p>
-          <% } else { %>
-            <p><small>No banner image uploaded yet.</small></p>
+      
+      <header>
+        <h2><%= event.title %></h2>
+      </header>
+      
+      <section>
+        <div style="padding-bottom: 0.33rem;">
+          <div>
+            <span id="event-preview-time" class="local-datetime" data-timestamp="<%= event.date %>">
+              <%= new Date(event.date).toLocaleString() %>
+            </span>
+          </div>
+          <% if (event.location_name || event.location_href) { %>
+            <div>
+              <% if (event.location_href) { %>
+                <a href="<%= event.location_href %>" target="_blank">
+                  <%= event.location_name || 'Location' %>
+                </a>
+              <% } else { %>
+                <%= event.location_name %>
+              <% } %>
+            </div>
           <% } %>
-          <input type="file" id="banner_image" name="banner_image" accept="image/png, image/jpeg, image/gif">
         </div>
-        <button type="submit" class="action-button">Update Event Details</button>
-      </form>
+      </section>
+      
+      <% if (event.description) { %>
+        <section>
+          <p class="description"><%- event.description %></p>
+        </section>
+      <% } %>
+      
+      <footer>
+        <button onclick="openEditEventModal()">✏️ Edit Event Details</button>
+      </footer>
     </article>
-     </details>
 
-
-   <!--
-   <hr style="margin: 20px 0;">
-    <p class="date">Current Start Date & Time (Server Local): <%= new Date(event.date).toLocaleString() %></p>
-    <% if (event.date_end) { %>
-      <p class="date">Current End Date & Time (Server Local): <%= new Date(event.date_end).toLocaleString() %></p>
-    <% } %>
-    <p class="timezone">Current Event Timezone for Emails: <%= event.timezone || 'Server Default' %></p>
-    <% if (event.location_name || event.location_href) { %>
-      <p class="location">
-        Current Location: 
-        <% if (event.location_href) { %>
-          <a href="<%= event.location_href %>" target="_blank"><%= event.location_name || 'View Map' %></a>
-        <% } else { %>
-          <%= event.location_name %>
-        <% } %>
-      </p>
-    <% } %>
-    <% if (event.description) { %>
-      <p class="description">Current Description: <%- event.description %></p>
-    <% } %>
-
-
-    <div class="form-section">
-      <form action="/admin/events/<%= event.id %>/send-invites" method="POST" style="margin-bottom: 20px;">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <button type="submit" class="action-button" <% if (typeof attendeeStats !== 'undefined' && attendeeStats.guestsNotSent === 0) { %>disabled<% } %>>
-          Send All Pending Invites for This Event
-        </button>
-        <% if (typeof attendeeStats !== 'undefined' && attendeeStats.guestsNotSent === 0) { %>
-          <small>(No pending invites to send)</small>
-        <% } %>
-      </form>
+    <!-- Action Buttons -->
+    <div class="grid">
+      <button onclick="openAddAttendeeModal()">👤 Invite Someone</button>
+      <button onclick="openImportContactsModal()">📋 Import Contacts</button>
     </div>
 
 
--->
-
-    <details >
-      <summary role="button">Invite someone</summary>
-    <!-- Attendees Section -->
-     <article>
-          <form action="/admin/attendee" method="POST">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <input type="hidden" name="event_id" value="<%= event.id %>" />
-            <input type="hidden" name="token" />  <%# TODO: very beginning of turning this into an edit/update form as well as an insert form %>
-            <label for="name">Name:</label>
-            <input type="text" id="name" name="name" required />
-            
-            <label for="email">Primary Email:</label>
-            <input type="email" id="email" name="email" required />
-            
-            <label for="additional_emails">Additional Emails (one per line or comma-separated):</label>
-            <textarea id="additional_emails" name="additional_emails" rows="3" placeholder="friend@example.com, colleague@work.com"></textarea>
-            
-            <label for="party_size_single">Party Size:</label>
-            <input type="number" id="party_size_single" name="party_size" value="1" min="1" required />
-            <button type="submit">Add Attendee</button>
-          </form>
-        </article>
-    </details>
-
-    <details>
-      <summary role="button">Invite many people</summary>
-      <article>
-      <!-- Parse Email Addresses from "To:" Field -->
-      <div class="mt-20 mb-20">
-        <h3>Parse Email Addresses from "To:" Field</h3>
-        <p class="text-muted" style="font-size: 0.9em; margin-bottom: 10px;">
-          Paste a list of email recipients (e.g., from an email's "To:" or "Cc:" field).<br>
-          Each will be added with a party size of 1. Deduplicates based on email address.<br>
-        </p>
-        <form action="/admin/event/<%= event.id %>/attendees/parse-emails" method="POST">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <label for="email_field_data">Paste Email Field Content:</label>
-          <textarea id="email_field_data" name="email_field_data" rows="5" placeholder="&quot;Friendly Name&quot; &lt;name@example.com&gt;, another@example.org, Person &lt;person@server.com&gt;" required style="width: 100%; box-sizing: border-box; margin-top: 5px; margin-bottom: 10px;"></textarea>
-          <button type="submit">Parse and Add Attendees</button>
-        </form>
-      </div>
-      </article></details>
-
-      <!-- END NEW FORM SECTION -->
-
-      <% if (allEvents.length > 0) { %>
-      <details>
-        <summary role="button">Copy attendees from another event</summary>
-      <article> 
-        <form action="/admin/attendees/copy" method="POST">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <input type="hidden" name="to_event" value="<%= event.id %>" />
-          <label for="from_event">Copy Attendees From Event:</label>
-          <select id="from_event" name="from_event" required>
-            <% allEvents.forEach(otherEvent => { %>
-              <option value="<%= otherEvent.id %>"><%= otherEvent.title %></option>
-            <% }) %>
-          </select>
-          <button type="submit">Copy Attendees</button>
-        </form>
-      </article>
-      </details>
-      <% } %>
-
-
-          <!-- RSVP Summary Section -->
+    <!-- RSVP Summary Section -->
     <% if (typeof attendeeStats !== 'undefined') { %>
-    <section>
       <article class="rsvp-summary">
         <header>
           <h3>Response summary</h3>
         </header>
         <section class="grid">
-          <div><header>
-            <strong>Potential Guests:</strong></header> <%= attendeeStats.potentialGuests %>
+          <% 
+            const now = Date.now();
+            const eventDate = new Date(event.date);
+            const daysUntil = Math.ceil((event.date - now) / (1000 * 60 * 60 * 24));
+            const daysText = daysUntil === 0 ? 'Today!' : daysUntil === 1 ? '1 day' : daysUntil < 0 ? `${Math.abs(daysUntil)} days ago` : `${daysUntil} days`;
+          %>
+          <div>
+            <header><strong><%= daysText %></strong></header>
+            until event
           </div>
-          <div><header>
-            <strong>Invites Not Sent:</strong> </header> <%= attendeeStats.guestsNotSent %>
+          <div>
+            <header><strong><%= attendeeStats.potentialGuests %></strong></header>
+            potential guests
           </div>
-          <div> <header>
-            <strong>Invites Sent:</strong> </header> <%= attendeeStats.guestsInvited %>
+          <div>
+            <header><strong><%= attendeeStats.guestsAttending %></strong></header>
+            accepts
           </div>
-        </section><section class="grid">  <%# is there a better way to do this? %>
-          <div><header>
-            <strong>Awaiting Reply:</strong> </header> <%= attendeeStats.guestsAwaitingReply %>
-          </div>
-          <div> <header>
-            <strong>Attending:</strong> </header> <%= attendeeStats.guestsAttending %>
-          </div>
-          <div> <header>
-            <strong>Not Attending:</strong> </header> <%= attendeeStats.guestsNotAttending %>
+          <div>
+            <header><strong><%= attendeeStats.guestsNotAttending %></strong></header>
+            regrets
           </div>
         </section>
-    </section>
+        <footer>
+          <form action="/admin/events/<%= event.id %>/send-invites" method="POST">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button type="submit" <% if (attendeeStats.guestsNotSent === 0) { %>disabled<% } %>>
+              📨 Send All Pending Invites (<%= attendeeStats.guestsNotSent %>)
+            </button>
+          </form>
+        </footer>
+      </article>
     <% } %>
 
-      <h3>Responses</h3>
+    <h3>Attendees</h3>
       <% if (attendees.length > 0) { %>
         <table id="attendeesTable" class="display">
           <thead>
@@ -325,14 +261,10 @@
                         <button type="submit" class="btn-icon btn-primary" title="Re-send Invite">🔄</button>
                       </form>
                     <% } %>
-                    <button type="button" class="btn-icon edit-emails-button" title="Edit Details"
-                            data-attendee-id="<%= attendee.id %>"
-                            data-attendee-name="<%= attendee.name %>"
-                            data-primary-email="<%= attendee.email %>"
-                            data-additional-emails="<%= additionalEmailsArray.join('\n') %>">✏️</button>
-                    <form action="/admin/attendee/<%= attendee.id %>/delete" method="POST" style="display: inline;" class="delete-attendee-form">
+                    <button type="button" class="btn-icon" title="Edit Details" onclick="openEditAttendeeModal(<%= attendee.id %>, '<%= attendee.name.replace(/'/g, "\\'") %>', '<%= attendee.email %>', `<%= additionalEmailsArray.join('\n') %>`)">✏️</button>
+                    <form action="/admin/attendee/<%= attendee.id %>/delete" method="POST" style="display: inline;" onsubmit="return confirm('Delete <%= attendee.name.replace(/'/g, "\\'") %>?');">
                       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                      <button type="submit" class="btn-icon btn-danger" title="Delete">🗑️</button>
+                      <button type="submit" class="btn-icon" title="Delete">🗑️</button>
                     </form>
                   </div>
                 </td>
@@ -343,50 +275,158 @@
       <% } else { %>
         <p>No attendees added yet for this event.</p>
       <% } %>
-    </div>
-  </div>
 
-  <!-- Edit Details Modal -->
-  <div id="editEmailsModal" class="modal"> <!-- Bulma: add 'is-active' to show -->
-    <div class="modal-background"></div>
-    <div class="modal-card">
-      <header class="modal-card-head">
-        <p class="modal-card-title">Edit Details for <span id="modalAttendeeTitleName"></span></p>
-        <button class="delete" aria-label="close" id="closeEditEmailsModalTop"></button>
+  <!-- Edit Event Details Modal -->
+  <dialog id="editEventModal">
+    <article>
+      <header>
+        <button aria-label="Close" rel="prev" onclick="closeEditEventModal()"></button>
+        <h3>Edit Event Details</h3>
       </header>
-      <section class="modal-card-body">
-        <form id="editEmailsForm" method="POST"> <!-- Action will be set by JS -->
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <input type="hidden" id="modalAttendeeId" name="attendeeId">
-          
-          <div class="field">
-            <label class="label" for="modalAttendeeNameInput">Name:</label>
-            <div class="control">
-              <input class="input" type="text" id="modalAttendeeNameInput" name="name" required>
-            </div>
-          </div>
+      <form action="/admin/event/<%= event.id %>/update" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        
+        <label>
+          Event Title
+          <input type="text" name="title" value="<%= event.title %>" required />
+        </label>
+        
+        <label>
+          Start Date & Time
+          <input type="datetime-local" name="date" id="edit-date" data-timestamp="<%= event.date %>" required />
+        </label>
+        
+        <label>
+          End Date & Time (Optional)
+          <input type="datetime-local" name="date_end" id="edit-date-end" data-timestamp="<%= event.date_end %>" />
+        </label>
+        
+        <%- include('timezone-select', { labelText: 'Event Timezone', inputId: 'edit-timezone', selectedTimezone: event.timezone }); %>
+        
+        <label>
+          Location Name (Optional)
+          <input type="text" name="location_name" value="<%= event.location_name || '' %>" />
+        </label>
+        
+        <label>
+          Location URL (Optional)
+          <input type="url" name="location_href" value="<%= event.location_href || '' %>" placeholder="https://maps.example.com/..." />
+        </label>
+        
+        <label>
+          Description
+          <textarea name="description" rows="4"><%= event.description || '' %></textarea>
+        </label>
+        
+        <label>
+          Event Banner Image (Optional)
+          <% if (event.banner_image_filename) { %>
+            <img src="/uploads/event-banners/<%= event.banner_image_filename %>" alt="Current Event Banner" class="current-banner-image">
+            <small>Uploading a new image will replace the current one.</small>
+          <% } else { %>
+            <small>No banner image uploaded yet.</small>
+          <% } %>
+          <input type="file" name="banner_image" accept="image/png, image/jpeg, image/gif">
+        </label>
+        
+        <footer>
+          <button type="button" class="secondary" onclick="closeEditEventModal()">Cancel</button>
+          <button type="submit">Update Event</button>
+        </footer>
+      </form>
+    </article>
+  </dialog>
 
-          <div class="field">
-            <label class="label" for="modalPrimaryEmail">Primary Email:</label>
-            <div class="control">
-              <input class="input" type="email" id="modalPrimaryEmail" name="primaryEmail" required>
-            </div>
-          </div>
-          
-          <div class="field">
-            <label class="label" for="modalAdditionalEmails">Additional Emails (one per line):</label>
-            <div class="control">
-              <textarea class="textarea" id="modalAdditionalEmails" name="additionalEmails" rows="4"></textarea>
-            </div>
-          </div>
+  <!-- Attendee Modal (Add/Edit) -->
+  <dialog id="attendeeModal">
+    <article>
+      <header>
+        <button aria-label="Close" rel="prev" onclick="closeAttendeeModal()"></button>
+        <h3 id="attendeeModalTitle">Invite Someone</h3>
+      </header>
+      <form id="attendeeForm" method="POST">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="event_id" value="<%= event.id %>" />
+        
+        <label>
+          Name
+          <input type="text" id="attendee-name" name="name" required />
+        </label>
+        
+        <label id="emailLabel">
+          Primary Email
+          <input type="email" id="attendee-email" name="email" required />
+        </label>
+        
+        <label>
+          Additional Emails (one per line)
+          <textarea id="attendee-additional" name="additional_emails" rows="3" placeholder="friend@example.com&#10;colleague@work.com"></textarea>
+          <small>These people will be CC'd on the invitation</small>
+        </label>
+        
+        <label id="partySizeLabel">
+          Party Size
+          <input type="number" id="attendee-party-size" name="party_size" value="1" min="1" required />
+        </label>
+        
+        <label id="sendInviteLabel">
+          <input type="checkbox" id="attendee-send-invite" name="send_invite" value="1" />
+          Send invite now
+        </label>
+        
+        <footer class="grid">
+          <button type="button" class="secondary" onclick="closeAttendeeModal()">Cancel</button>
+          <button type="submit" id="attendeeSubmitBtn">Add & Send Invite Later</button>
+        </footer>
+      </form>
+    </article>
+  </dialog>
+
+  <!-- Import Contacts Modal -->
+  <dialog id="importContactsModal">
+    <article>
+      <header>
+        <button aria-label="Close" rel="prev" onclick="closeImportContactsModal()"></button>
+        <h3>Import Contacts</h3>
+      </header>
+      
+      <details>
+        <summary>Parse from Email Field</summary>
+        <p><small>Paste a list of email recipients (e.g., from an email's "To:" or "Cc:" field). Each will be added with a party size of 1.</small></p>
+        <form action="/admin/event/<%= event.id %>/attendees/parse-emails" method="POST">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <label>
+            Email Field Content
+            <textarea name="email_field_data" rows="5" placeholder="&quot;Friendly Name&quot; &lt;name@example.com&gt;, another@example.org" required></textarea>
+          </label>
+          <button type="submit">Parse and Add</button>
         </form>
-      </section>
-      <footer class="modal-card-foot">
-        <button type="submit" class="button is-success" form="editEmailsForm">Save changes</button>
-        <button type="button" class="button" id="cancelEditEmailsModalBottom">Cancel</button>
+      </details>
+      
+      <% if (allEvents.length > 0) { %>
+      <details>
+        <summary>Copy from Another Event</summary>
+        <form action="/admin/attendees/copy" method="POST">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="to_event" value="<%= event.id %>" />
+          <label>
+            Copy Attendees From
+            <select name="from_event" required>
+              <% allEvents.forEach(otherEvent => { %>
+                <option value="<%= otherEvent.id %>"><%= otherEvent.title %></option>
+              <% }) %>
+            </select>
+          </label>
+          <button type="submit">Copy Attendees</button>
+        </form>
+      </details>
+      <% } %>
+      
+      <footer>
+        <button type="button" onclick="closeImportContactsModal()">Close</button>
       </footer>
-    </div>
-  </div>
+    </article>
+  </dialog>
 
 
   <!-- jQuery -->
@@ -397,56 +437,91 @@
   <script src="/static/admin.js"></script>
 
   <script>
-    // Page-specific DataTables and modal initialization
+    // Initialize DataTables
     $(document).ready(function() {
       $('#attendeesTable').DataTable({
         "order": [[ 6, "desc" ]], // Default sort by "Last Modified" descending
         "pageLength": 25
       });
-
-      // Edit Details Modal Logic
-      const editDetailsModalElement = document.getElementById('editEmailsModal'); // Keep ID for now, or rename if preferred
-      const closeEditDetailsModalButtonTop = document.getElementById('closeEditEmailsModalTop');
-      const cancelEditDetailsModalButtonBottom = document.getElementById('cancelEditEmailsModalBottom');
-      const editDetailsFormElement = document.getElementById('editEmailsForm');
-      const modalAttendeeTitleNameSpan = document.getElementById('modalAttendeeTitleName');
-      const modalAttendeeIdInput = document.getElementById('modalAttendeeId');
-      const modalAttendeeNameInput = document.getElementById('modalAttendeeNameInput'); // New input for name
-      const modalPrimaryEmailInput = document.getElementById('modalPrimaryEmail');
-      const modalAdditionalEmailsTextarea = document.getElementById('modalAdditionalEmails');
-
-      // Use event delegation for edit buttons on the attendees table
-      $('#attendeesTable tbody').on('click', '.edit-emails-button', function() {
-          const attendeeId = $(this).data('attendee-id');
-          const attendeeName = $(this).data('attendee-name');
-          const primaryEmail = $(this).data('primary-email');
-          const additionalEmails = $(this).data('additional-emails'); 
-
-          modalAttendeeTitleNameSpan.textContent = attendeeName; // For the modal title
-          modalAttendeeIdInput.value = attendeeId;
-          modalAttendeeNameInput.value = attendeeName; // Populate the name input field
-          modalPrimaryEmailInput.value = primaryEmail;
-          modalAdditionalEmailsTextarea.value = additionalEmails;
-          
-          editDetailsFormElement.action = `/admin/attendee/${attendeeId}/update-emails`; // Route can remain for now
-          
-          if (editDetailsModalElement) { 
-            editDetailsModalElement.classList.add('is-active');
-          }
-      });
-
-      function closeEditDetailsModal() {
-        if (editDetailsModalElement) { 
-            editDetailsModalElement.classList.remove('is-active');
-        }
-      }
-
-      if(closeEditDetailsModalButtonTop) closeEditDetailsModalButtonTop.addEventListener('click', closeEditDetailsModal);
-      if(cancelEditDetailsModalButtonBottom) cancelEditDetailsModalButtonBottom.addEventListener('click', closeEditDetailsModal);
-      
-      const modalBackground = editDetailsModalElement ? editDetailsModalElement.querySelector('.modal-background') : null;
-      if(modalBackground) modalBackground.addEventListener('click', closeEditDetailsModal);
     });
+
+    // Modal functions - Edit Event
+    function openEditEventModal() {
+      document.getElementById('editEventModal').showModal();
+    }
+    function closeEditEventModal() {
+      document.getElementById('editEventModal').close();
+    }
+
+    // Modal functions - Unified Attendee Modal (Add/Edit)
+    function openAddAttendeeModal() {
+      const modal = document.getElementById('attendeeModal');
+      const form = document.getElementById('attendeeForm');
+      const title = document.getElementById('attendeeModalTitle');
+      const submitBtn = document.getElementById('attendeeSubmitBtn');
+      const emailLabel = document.getElementById('emailLabel');
+      const sendInviteLabel = document.getElementById('sendInviteLabel');
+      
+      // Reset form
+      form.reset();
+      form.action = '/admin/attendee';
+      
+      // Set labels for add mode
+      title.textContent = 'Invite Someone';
+      submitBtn.textContent = 'Add Attendee';
+      emailLabel.querySelector('input').name = 'email'; // Use 'email' for add
+      document.getElementById('attendee-additional').name = 'additional_emails';
+      
+      // Show send invite checkbox
+      sendInviteLabel.style.display = '';
+      
+      modal.showModal();
+    }
+    
+    function openEditAttendeeModal(id, name, email, additionalEmails) {
+      const modal = document.getElementById('attendeeModal');
+      const form = document.getElementById('attendeeForm');
+      const title = document.getElementById('attendeeModalTitle');
+      const submitBtn = document.getElementById('attendeeSubmitBtn');
+      const emailLabel = document.getElementById('emailLabel');
+      const partySizeLabel = document.getElementById('partySizeLabel');
+      const sendInviteLabel = document.getElementById('sendInviteLabel');
+      
+      // Set form action for edit
+      form.action = `/admin/attendee/${id}/update-emails`;
+      
+      // Populate form fields
+      document.getElementById('attendee-name').value = name;
+      document.getElementById('attendee-email').value = email;
+      document.getElementById('attendee-additional').value = additionalEmails;
+      
+      // Set labels for edit mode
+      title.textContent = 'Edit Attendee Details';
+      submitBtn.textContent = 'Save Changes';
+      emailLabel.querySelector('input').name = 'primaryEmail'; // Use 'primaryEmail' for edit
+      document.getElementById('attendee-additional').name = 'additionalEmails';
+      
+      // Hide party size and send invite for edit (they're handled separately)
+      partySizeLabel.style.display = 'none';
+      sendInviteLabel.style.display = 'none';
+      
+      modal.showModal();
+    }
+    
+    function closeAttendeeModal() {
+      const modal = document.getElementById('attendeeModal');
+      const partySizeLabel = document.getElementById('partySizeLabel');
+      partySizeLabel.style.display = ''; // Reset display
+      modal.close();
+    }
+
+    // Modal functions - Import Contacts
+    function openImportContactsModal() {
+      document.getElementById('importContactsModal').showModal();
+    }
+    function closeImportContactsModal() {
+      document.getElementById('importContactsModal').close();
+    }
   </script>
 </body>
 </html>
