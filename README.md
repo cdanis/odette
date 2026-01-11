@@ -25,6 +25,7 @@ Multi-tenancy / event admin logins are not currently implemented (see Roadmap).
 
 ```bash
 npm install
+npm test
 npm run dev
 # Server runs at http://localhost:3000
 ```
