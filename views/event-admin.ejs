@@ -154,9 +154,7 @@
               <th>Name</th>
               <th>Email(s)</th>
               <th>Party Size</th>
-              <th>Invite Sent?</th>
               <th>RSVP Status</th>
-              <th>Responded At</th>
               <th>Last Modified</th>
               <th>Actions</th>
             </tr>
@@ -175,11 +173,17 @@
                 }
               %>
               <tr>
-                <td><%= attendee.name %></td>
+                <td>
+                  <% if (attendee.is_sent) { %>
+                    <a href="/rsvp/<%= attendee.token %>" target="_blank"><%= attendee.name %></a>
+                  <% } else { %>
+                    <%= attendee.name %>
+                  <% } %>
+                </td>
                 <td class="email-list">
                   <strong><%= attendee.email %></strong> <!-- Primary -->
                   <% if (additionalEmailsArray.length > 0) { %>
-                    <% additionalEmailsArray.forEach(addEmail => { %><small><%= addEmail %></small><% }); %>
+                    <% additionalEmailsArray.forEach(addEmail => { %><br/><small><%= addEmail %></small><% }); %>
                   <% } %>
                 </td>
                 <td data-order="<%= attendee.party_size %>">
@@ -191,13 +195,6 @@
                     </form>
                   <% } else { %>
                     <%= attendee.party_size %>
-                  <% } %>
-                </td>
-                <td>
-                  <% if (attendee.is_sent) { %>
-                    <a href="/rsvp/<%= attendee.token %>" target="_blank">Yes</a>
-                  <% } else { %>
-                    No
                   <% } %>
                 </td>
                 <% 
@@ -216,13 +213,6 @@
                 %>
                 <td data-order="<%= rsvpSortOrder %>">
                   <span class="badge <%= rsvpBadgeClass %>"><%= rsvpStatusText %></span>
-                </td>
-                <td data-order="<%= attendee.responded_at || 0 %>">
-                  <% if (attendee.responded_at) { %>
-                    <%= new Date(attendee.responded_at).toLocaleString() %>
-                  <% } else { %>
-                    N/A
-                  <% } %>
                 </td>
                 <td data-order="<%= attendee.last_modified || 0 %>">
                   <% if (attendee.last_modified) { %>
@@ -425,7 +415,7 @@
     // Initialize DataTables
     $(document).ready(function() {
       $('#attendeesTable').DataTable({
-        "order": [[ 6, "desc" ]], // Default sort by "Last Modified" descending
+        "order": [[ 4, "desc" ]], // Default sort by "Last Modified" descending
         "pageLength": 25
       });
     });
