@@ -6,7 +6,8 @@ import type { Request, Response } from 'express';
 import addressparser from 'addressparser';
 import { getDatabase, upsertAttendee, type EventRecord } from '../database';
 import { sendInvitation } from '../notifications';
-import { deriveNameFromEmail } from '../utils';
+import { deriveNameFromEmail, parseCsvTsvLine } from '../utils';
+import { uploadMemory } from '../multer-config';
 
 const router = Router();
 
@@ -162,6 +163,34 @@ router.post('/event/:eventId/attendees/parse-emails', (req: Request, res: Respon
   }
 
   res.redirect(`/admin/${eventId}`);
+});
+
+/**
+ * Upload and parse CSV/TSV file
+ */
+router.post('/event/:eventId/attendees/upload-csv', uploadMemory.single('csv_file'), (req: Request, res: Response) => {
+  const eventId = +req.params.eventId;
+  
+  if (!req.file) {
+    return res.redirect(`/admin/${eventId}?error=${encodeURIComponent('No file uploaded')}`);
+  }
+
+  try {
+    const fileContent = req.file.buffer.toString('utf-8');
+    const lines = fileContent.split(/\r?\n/);
+    
+    lines.forEach(line => {
+      const parsed = parseCsvTsvLine(line);
+      if (parsed) {
+        upsertAttendee(eventId, parsed.name, parsed.email, parsed.party_size, []);
+      }
+    });
+    
+    res.redirect(`/admin/${eventId}`);
+  } catch (error) {
+    console.error('Error parsing CSV/TSV file:', error);
+    res.redirect(`/admin/${eventId}?error=${encodeURIComponent('Failed to parse file')}`);
+  }
 });
 
 /**

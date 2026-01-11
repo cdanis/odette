@@ -145,3 +145,83 @@ export function deriveNameFromEmail(parsedAddress: { name?: string; address?: st
     .replace(/[."']/g, ' ')
     .trim();
 }
+
+/**
+ * Parse a single line from a CSV or TSV file
+ * Automatically detects delimiter and extracts email and name
+ * 
+ * @param line Single line from CSV/TSV file
+ * @returns Object with email, name, and party_size (based on number of emails), or null if no email found
+ */
+export function parseCsvTsvLine(line: string): { email: string; name: string; party_size: number } | null {
+  if (!line || !line.trim()) {
+    return null;
+  }
+
+  // Detect delimiter (tab or comma)
+  const delimiter = line.includes('\t') ? '\t' : ',';
+  
+  // Parse CSV/TSV respecting quotes
+  const columns: string[] = [];
+  let currentColumn = '';
+  let inQuotes = false;
+  let quoteChar: string | null = null;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    
+    if (!inQuotes && (char === '"' || char === "'")) {
+      // Start of quoted field
+      inQuotes = true;
+      quoteChar = char;
+    } else if (inQuotes && char === quoteChar) {
+      // End of quoted field
+      inQuotes = false;
+      quoteChar = null;
+    } else if (!inQuotes && char === delimiter) {
+      // Field separator
+      columns.push(currentColumn.trim());
+      currentColumn = '';
+    } else {
+      // Regular character
+      currentColumn += char;
+    }
+  }
+  
+  // Add the last column
+  columns.push(currentColumn.trim());
+  
+  // Simple email regex for column detection
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  
+  let email: string | null = null;
+  let name: string | null = null;
+  let emailCount = 0;
+  
+  // Count all email columns and get first one
+  for (const col of columns) {
+    if (col && emailRegex.test(col)) {
+      emailCount++;
+      if (!email) {
+        email = col;
+      }
+    }
+  }
+  
+  if (!email) {
+    return null;
+  }
+  
+  // Find first non-email column for name
+  for (const col of columns) {
+    if (col && !emailRegex.test(col)) {
+      name = col;
+      break;
+    }
+  }
+  
+  // Use derived name if no name column found
+  const finalName = name || deriveNameFromEmail({ address: email });
+  
+  return { email, name: finalName, party_size: emailCount };
+}

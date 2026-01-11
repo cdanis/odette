@@ -82,30 +82,7 @@ const csrfProtection = csurf();
 // Multer Configuration (for file uploads)
 // ============================================================================
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, EVENT_BANNER_STORAGE_PATH);
-  },
-  filename: function (req, file, cb) {
-    const eventIdPart = req.params.eventId || 'temp';
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, `event-${eventIdPart}-${uniqueSuffix}${path.extname(file.originalname)}`);
-  }
-});
-
-const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  if (file.mimetype === 'image/jpeg' || file.mimetype === 'image/png' || file.mimetype === 'image/gif') {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type. Only JPEG, PNG, and GIF are allowed.'));
-  }
-};
-
-export const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }
-});
+import { upload } from './multer-config';
 
 // ============================================================================
 // Database Initialization

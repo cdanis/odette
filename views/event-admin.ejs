@@ -132,7 +132,7 @@
     <!-- Action Buttons -->
     <section class="grid">
       <button onclick="openAddAttendeeModal()">👤 Invite Someone</button>
-      <button onclick="openImportContactsModal()">📋 Import Contacts</button>
+      <button onclick="openImportContactsModal()">📋 Invite Lots</button>
     </section>
     <section>
       <form action="/admin/events/<%= event.id %>/send-invites" method="POST">
@@ -372,7 +372,7 @@
     <article>
       <header>
         <button aria-label="Close" rel="prev" onclick="closeImportContactsModal()"></button>
-        <h3>Import Contacts</h3>
+        <h3>Invite many people</h3>
       </header>
       
       <details name="multi-add">
@@ -385,6 +385,19 @@
             <textarea name="email_field_data" rows="5" placeholder="&quot;Friendly Name&quot; &lt;name@example.com&gt;, another@example.org" required></textarea>
           </label>
           <button type="submit">Parse and Add</button>
+        </form>
+      </details>
+      
+      <details name="multi-add">
+        <summary role="button">Upload CSV/TSV File</summary>
+        <p><small>Upload a CSV or TSV file with attendees. Each row should have at least one email address. The first non-email column will be used as the name.</small></p>
+        <form action="/admin/event/<%= event.id %>/attendees/upload-csv" method="POST" enctype="multipart/form-data">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <label>
+            CSV/TSV File
+            <input type="file" name="csv_file" accept=".csv,.tsv,.txt" required />
+          </label>
+          <button type="submit">Upload and Add</button>
         </form>
       </details>
       
@@ -408,7 +421,7 @@
       <% } %>
       
       <footer>
-        <button type="button" onclick="closeImportContactsModal()">Close</button>
+        <button type="button" class="secondary" onclick="closeImportContactsModal()">Close</button>
       </footer>
     </article>
   </dialog>
