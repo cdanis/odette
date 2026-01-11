@@ -67,4 +67,27 @@ describe('upsertAttendee', () => {
     expect(after.party_size).toBe(before.party_size);
     expect(after.last_modified).toBeGreaterThan(before.last_modified);
   });
+
+  it('updates name when a non-empty name is provided', () => {
+    upsertAttendee(eventId, 'john', 'john@example.com', 1);
+    const before = db.prepare('SELECT name FROM attendees WHERE email = ?').get('john@example.com') as any;
+    expect(before.name).toBe('john');
+
+    // Update with better name
+    upsertAttendee(eventId, 'John Doe', 'john@example.com', 1);
+    const after = db.prepare('SELECT name FROM attendees WHERE email = ?').get('john@example.com') as any;
+    expect(after.name).toBe('John Doe');
+  });
+
+  it('preserves existing name when empty string is provided', () => {
+    upsertAttendee(eventId, 'Jane Smith', 'jane@example.com', 1);
+    const before = db.prepare('SELECT name FROM attendees WHERE email = ?').get('jane@example.com') as any;
+    expect(before.name).toBe('Jane Smith');
+
+    // Update with empty name (should preserve existing)
+    upsertAttendee(eventId, '', 'jane@example.com', 2);
+    const after = db.prepare('SELECT name, party_size FROM attendees WHERE email = ?').get('jane@example.com') as any;
+    expect(after.name).toBe('Jane Smith');
+    expect(after.party_size).toBe(2); // Other fields should still update
+  });
 });
