@@ -28,6 +28,7 @@ npm install
 npm test
 npm run dev
 # Server runs at http://localhost:3000
+# Auto-reloads on changes
 ```
 
 Admin dashboard: `http://localhost:3000/admin`

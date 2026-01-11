@@ -8,6 +8,7 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { getDatabase, getEventAttendeeStats, type EventRecord, type EventRecordWithStats } from '../database';
 import { getTimezones } from '../utils';
+import { toZonedTime, fromZonedTime } from 'date-fns-tz';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -69,14 +70,16 @@ router.get('/:eventId', (req: Request, res: Response) => {
  */
 router.post('/event', (req: Request, res: Response) => {
   const { title, date, description, location_name, location_href, date_end, timezone } = req.body;
-  const dateTimestamp = new Date(date).getTime();
+  
+  // Parse datetime-local values in the context of the event timezone
+  // datetime-local values are in format "2026-01-15T19:00" with no timezone info
+  // We interpret them as being in the event's timezone (or server default if not specified)
+  const eventTimezone = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const dateTimestamp = fromZonedTime(date, eventTimezone).getTime();
   let dateEndTimestamp: number | null = null;
   
   if (date_end) {
-    const parsedEnd = new Date(date_end).getTime();
-    if (!isNaN(parsedEnd)) {
-      dateEndTimestamp = parsedEnd;
-    }
+    dateEndTimestamp = fromZonedTime(date_end, eventTimezone).getTime();
   }
   
   const db = getDatabase();
@@ -115,14 +118,16 @@ router.post('/event', (req: Request, res: Response) => {
 router.post('/event/:eventId/update', (req: Request, res: Response) => {
   const eventId = +req.params.eventId;
   const { title, date, description, location_name, location_href, date_end, timezone } = req.body;
-  const dateTimestamp = new Date(date).getTime();
+  
+  // Parse datetime-local values in the context of the event timezone
+  // datetime-local values are in format "2026-01-15T19:00" with no timezone info
+  // We interpret them as being in the event's timezone (or server default if not specified)
+  const eventTimezone = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const dateTimestamp = fromZonedTime(date, eventTimezone).getTime();
   let dateEndTimestamp: number | null = null;
   
   if (date_end) {
-    const parsedEnd = new Date(date_end).getTime();
-    if (!isNaN(parsedEnd)) {
-      dateEndTimestamp = parsedEnd;
-    }
+    dateEndTimestamp = fromZonedTime(date_end, eventTimezone).getTime();
   }
 
   const db = getDatabase();
