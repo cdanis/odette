@@ -19,7 +19,7 @@
     }
     
     .email-list {
-      display: flex;
+      /* display: flex; */
       flex-direction: column;
       gap: 0.25rem;
     }
@@ -114,12 +114,6 @@
       </footer>
     </article>
 
-    <!-- Action Buttons -->
-    <div class="grid">
-      <button onclick="openAddAttendeeModal()">👤 Invite Someone</button>
-      <button onclick="openImportContactsModal()">📋 Import Contacts</button>
-    </div>
-
 
     <!-- RSVP Summary Section -->
     <% if (typeof attendeeStats !== 'undefined') { %>
@@ -152,12 +146,19 @@
           </div>
         </section>
         <footer>
-          <form action="/admin/events/<%= event.id %>/send-invites" method="POST">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <button type="submit" <% if (attendeeStats.guestsNotSent === 0) { %>disabled<% } %>>
-              📨 Send All Pending Invites (<%= attendeeStats.guestsNotSent %>)
-            </button>
-          </form>
+    <!-- Action Buttons -->
+    <section class="grid">
+      <button onclick="openAddAttendeeModal()">👤 Invite Someone</button>
+      <button onclick="openImportContactsModal()">📋 Import Contacts</button>
+    </section>
+    <section>
+      <form action="/admin/events/<%= event.id %>/send-invites" method="POST">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" <% if (attendeeStats.guestsNotSent === 0) { %>disabled<% } %>>
+          📨 Send All Pending Invites (<%= attendeeStats.guestsNotSent %>)
+        </button>
+      </form>
+    </section>
         </footer>
       </article>
     <% } %>
