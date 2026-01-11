@@ -7,9 +7,11 @@ Odette is a TypeScript Express app for sending event invitations and tracking RS
 ### Module Structure
 
 - **[src/server.ts](../src/server.ts)**: Express app setup, middleware configuration, route mounting, error handlers (~170 lines)
+- **[src/main.ts](../src/main.ts)**: Entry point that imports server and starts listening
 - **[src/database.ts](../src/database.ts)**: Database initialization, schema migrations, data access layer (~270 lines)
 - **[src/utils.ts](../src/utils.ts)**: Pure utility functions (token generation, date formatting, text processing) (~90 lines)
 - **[src/notifications.ts](../src/notifications.ts)**: Email sending via nodemailer and ntfy.sh push notifications (~130 lines)
+- **[src/multer-config.ts](../src/multer-config.ts)**: File upload configuration (disk storage for banners, memory for CSV parsing)
 - **[src/routes/public.ts](../src/routes/public.ts)**: Public-facing routes (landing page, RSVP form, ICS download) (~200 lines)
 - **[src/routes/admin.ts](../src/routes/admin.ts)**: Event management routes (CRUD operations, file uploads) (~170 lines)
 - **[src/routes/attendees.ts](../src/routes/attendees.ts)**: Attendee management (add, batch, parse emails, send invitations) (~380 lines)
@@ -21,6 +23,7 @@ Odette is a TypeScript Express app for sending event invitations and tracking RS
 - **Token-based RSVP flow**: Each attendee gets a unique 32-char hex token for RSVP links. Tokens are generated via `crypto.randomBytes(16).toString('hex')` and stored in the `attendees` table.
 - **SQLite with runtime migrations**: Schema changes happen via try/catch ALTER TABLE checks at startup (see `initializeDatabase()` in `src/database.ts`). This pattern ensures backward compatibility when adding new columns.
 - **Email handling**: Primary emails stored in `attendees.email`, additional CC emails stored as JSON array in `attendees.additional_emails`.
+- **Middleware ordering**: Critical for file uploads to work with CSRF. Multer runs BEFORE CSRF middleware so multipart forms populate `req.body._csrf`. See route setup in [src/server.ts](../src/server.ts): `app.use('/admin', upload.single('banner_image'), csrfProtection, adminRoutes, attendeeRoutes)`.
 
 ## Database Schema
 
@@ -81,6 +84,14 @@ Route: `POST /event/:eventId/attendees/parse-emails` in [src/routes/attendees.ts
 - Strips quotes/periods from names to create clean display names
 - Default party size = 1 for all parsed attendees
 
+### CSV/TSV Parsing Feature
+Route: `POST /event/:eventId/attendees/upload-csv` in [src/routes/attendees.ts](../src/routes/attendees.ts)
+- Uses `parseCsvTsvLine()` helper in [src/utils.ts](../src/utils.ts)
+- Auto-detects delimiter (tab or comma)
+- Handles quoted fields with both single and double quotes
+- Party size = number of email columns found in each row
+- First non-email column used as name, or derived from email if none found
+
 ## Development Workflow
 
 ### Local Development
@@ -96,7 +107,7 @@ Access at `http://localhost:3000`. Admin at `http://localhost:3000/admin`.
 npm test  # Runs Jest with ts-jest
 ```
 
-Tests use in-memory SQLite (`process.env.DB_PATH = ':memory:'`) and import directly from modules (see [tests/server.test.ts](../tests/server.test.ts)).
+Tests use in-memory SQLite (`process.env.DB_PATH = ':memory:'`) and import directly from modules (see [tests/database.test.ts](../tests/database.test.ts)). Test files must set `process.env.DB_PATH = ':memory:'` **before** importing database modules to avoid creating real database files.
 
 ### Building & Running Production
 ```bash
@@ -111,6 +122,7 @@ docker run -p 3000:3000 \
   -v /path/to/data:/data \
   -e SMTP_USER=... \
   -e SMTP_PASS=... \
+  -e SESSION_SECRET=strong-random-string \
   odette
 ```
 
@@ -145,6 +157,8 @@ Compiled code runs from `dist/`, so relative paths use `__dirname` carefully:
 ### Date/Time Handling
 - Store all timestamps as **JS milliseconds** (INTEGER in SQLite)
 - Use `new Date(timestamp).getTime()` to convert user input
+- **datetime-local inputs**: HTML `<input type="datetime-local">` returns values without timezone info (e.g., "2026-01-15T19:00"). These are interpreted in the **event's timezone** using `fromZonedTime(dateString, eventTimezone)` from date-fns-tz before storing.
+- **Displaying dates**: Use `toZonedTime()` to convert back to event timezone for editing forms.
 - For ICS files: Convert to UTC via `formatICSDate()` helper in [src/utils.ts](../src/utils.ts)
 - For email display: Use `toLocaleString()` with `event.timezone` option
 
@@ -159,9 +173,11 @@ Banner images upload to `EVENT_BANNER_STORAGE_PATH`:
 - Max size: 5 MB
 - Allowed types: JPEG, PNG, GIF
 - Filenames: `event-{eventId}-{timestamp}.{ext}`
-- Multer configuration in [src/server.ts](../src/server.ts)
+- **Two multer instances**: `upload` (disk storage for banners) and `uploadMemory` (memory storage for CSV parsing)
+- Multer configuration in [src/multer-config.ts](../src/multer-config.ts)
 - Upload handling in [src/routes/admin.ts](../src/routes/admin.ts)
 - Old banners are **deleted** on update (see admin routes)
+- CSV uploads use `uploadMemory.single('csv_file')` to get `req.file.buffer` for parsing
 
 ## Common Tasks
 
