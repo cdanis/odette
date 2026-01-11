@@ -149,6 +149,12 @@
     <h3>Attendees</h3>
       <% if (attendees.length > 0) { %>
         <table id="attendeesTable" class="display">
+          <style>
+            .dataTables_wrapper .dataTables_filter input {
+              padding-inline-start: calc(var(--pico-form-element-spacing-horizontal) + 1.75rem);
+              border-radius: 15px;
+            }
+          </style>
           <thead>
             <tr>
               <th>Name</th>
@@ -198,10 +204,15 @@
                   <% } %>
                 </td>
                 <% 
-                  let rsvpStatusText = 'Pending';
-                  let rsvpBadgeClass = 'badge-warning';
-                  let rsvpSortOrder = 1; 
-                  if (attendee.rsvp === 'yes') {
+                  let rsvpStatusText = 'Not Sent';
+                  let rsvpBadgeClass = 'badge-secondary';
+                  let rsvpSortOrder = 0; 
+                  
+                  if (attendee.is_sent && !attendee.rsvp) {
+                    rsvpStatusText = 'Pending';
+                    rsvpBadgeClass = 'badge-secondary';
+                    rsvpSortOrder = 1;
+                  } else if (attendee.rsvp === 'yes') {
                     rsvpStatusText = 'YES';
                     rsvpBadgeClass = 'badge-success';
                     rsvpSortOrder = 2;
@@ -364,9 +375,9 @@
         <h3>Import Contacts</h3>
       </header>
       
-      <details>
-        <summary>Parse from Email Field</summary>
-        <p><small>Paste a list of email recipients (e.g., from an email's "To:" or "Cc:" field). Each will be added with a party size of 1.</small></p>
+      <details name="multi-add">
+        <summary role="button">Parse from Email</summary>
+        <p><small>Paste a list of email recipients (like from an email's "To:" or "Cc:" field). Each will be added as a separate attendee with a party size of 1.</small></p>
         <form action="/admin/event/<%= event.id %>/attendees/parse-emails" method="POST">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <label>
@@ -378,8 +389,8 @@
       </details>
       
       <% if (allEvents.length > 0) { %>
-      <details>
-        <summary>Copy from Another Event</summary>
+      <details name="multi-add">
+        <summary role="button">Copy from Another Event</summary>
         <form action="/admin/attendees/copy" method="POST">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" name="to_event" value="<%= event.id %>" />
