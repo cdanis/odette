@@ -29,6 +29,26 @@ npm run dev
 
 See [README.md](README.md) for more details.
 
+## Release Process
+
+Releases are automated via GitHub Actions:
+
+1. Update version in `package.json` (follow [semantic versioning](https://semver.org/))
+2. Commit the version change
+3. Create and push a git tag:
+   ```bash
+   git tag -a v0.2.0 -m "Release v0.2.0"
+   git push origin v0.2.0
+   ```
+4. GitHub Actions will automatically:
+   - Run tests
+   - Build the application
+   - Create a GitHub release with build artifacts
+   - Build and push Docker images to `ghcr.io/cdanis/odette`
+   - Tag Docker images with the version number (and `latest` for stable releases only)
+
+Release artifacts include a compressed tarball with the built application files.
+
 ## Code Style
 
 - Use TypeScript

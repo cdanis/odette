@@ -54,6 +54,19 @@ npm start
 
 ### Docker
 
+**Using pre-built image:**
+
+```bash
+docker run -p 3000:3000 \
+  -v /path/to/data:/data \
+  -e SMTP_USER=your-email@gmail.com \
+  -e SMTP_PASS=your-app-password \
+  -e SESSION_SECRET=random-secret-here \
+  ghcr.io/cdanis/odette:latest
+```
+
+**Building locally:**
+
 ```bash
 docker build -t odette .
 docker run -p 3000:3000 \
@@ -65,6 +78,8 @@ docker run -p 3000:3000 \
 ```
 
 Database and uploaded files persist in the `/data` volume.
+
+Docker images are automatically built and published to GitHub Container Registry on each release.
 
 ## Configuration
 
