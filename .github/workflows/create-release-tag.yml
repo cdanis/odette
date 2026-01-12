@@ -1,0 +1,64 @@
+name: Create Release Tag
+
+on:
+  workflow_dispatch:  # Allows manual triggering from GitHub UI
+
+jobs:
+  create-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for tags
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: Extract version from package.json
+        id: package-version
+        run: |
+          if [ ! -f package.json ]; then
+            echo "Error: package.json not found"
+            exit 1
+          fi
+          VERSION=$(node -p "require('./package.json').version")
+          if [ -z "$VERSION" ] || [ "$VERSION" = "undefined" ]; then
+            echo "Error: version field not found in package.json"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+          echo "Tag will be: v$VERSION"
+
+      - name: Check if tag exists
+        id: check-tag
+        run: |
+          if git rev-parse "v${{ steps.package-version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag v${{ steps.package-version.outputs.version }} already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Tag v${{ steps.package-version.outputs.version }} does not exist"
+          fi
+
+      - name: Create and push tag
+        if: steps.check-tag.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.package-version.outputs.tag }}" -m "Release ${{ steps.package-version.outputs.tag }}"
+          git push origin "${{ steps.package-version.outputs.tag }}"
+          echo "Created and pushed tag ${{ steps.package-version.outputs.tag }}"
+
+      - name: Tag already exists
+        if: steps.check-tag.outputs.exists == 'true'
+        run: |
+          echo "Tag ${{ steps.package-version.outputs.tag }} already exists. Skipping tag creation."
+          echo "The release workflow may have already been triggered for this version."
