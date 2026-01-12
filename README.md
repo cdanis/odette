@@ -13,6 +13,19 @@ Event invitation and RSVP management system built for self-hosting.
 
 Each guest gets a unique link — no login required to RSVP.
 
+## Features
+
+- **Token-based RSVPs** — No guest logins, just click the link
+- **Party size tracking** — Guests specify party size
+- **Email handling** — Primary + CC addresses per attendee
+- **Batch imports** — Parse from email headers, upload CSV/TSV, copy from other events
+- **Admin dashboard** — Real-time statistics and searchable attendee management
+- **ICS calendar downloads** — Unique calendar file per guest with event details
+- **Timezone support** — Event times display correctly for all recipients
+- **Event customization** — Banner images, location links, rich descriptions
+- **Mobile-friendly and desktop-friendly UI** — Responsive design built with [PicoCSS](https://picocss.com/)
+- **Zero-config database** — SQLite with automatic runtime migrations
+
 ## Self-Hosting
 
 Odette is designed to be run on your own infrastructure. Admin routes (`/admin/*`) have **no built-in authentication** — they're meant to be protected by an authenticating reverse proxy (nginx, Caddy, oauth2-proxy, etc.).
@@ -99,16 +112,6 @@ location / {
 ```
 
 Or use SSO solutions like Authelia, oauth2-proxy, etc.
-
-## Features
-
-- **Token-based RSVPs** — No guest logins, just click the link
-- **Party size tracking** — After a guest replies, can't accidentally be edited by admin
-- **Email handling** — Primary + CC addresses per attendee
-- **Batch imports** — Parse from email headers, upload CSV/TSV, copy from other events
-- **ICS downloads** — Calendar file per guest
-- **Timezone support** — Event times display correctly for recipients
-- **SQLite** — Zero-config database with runtime migrations
 
 ## Tech Stack
 
