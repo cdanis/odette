@@ -6,9 +6,12 @@ on:
 jobs:
   create-tag:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.package-version.outputs.tag }}
+      tag-created: ${{ steps.create-tag.outputs.created }}
     permissions:
       contents: write
-      
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -49,6 +52,7 @@ jobs:
           fi
 
       - name: Create and push tag
+        id: create-tag
         if: steps.check-tag.outputs.exists == 'false'
         run: |
           git config user.name "github-actions[bot]"
@@ -56,9 +60,20 @@ jobs:
           git tag -a "${{ steps.package-version.outputs.tag }}" -m "Release ${{ steps.package-version.outputs.tag }}"
           git push origin "${{ steps.package-version.outputs.tag }}"
           echo "Created and pushed tag ${{ steps.package-version.outputs.tag }}"
+          echo "created=true" >> $GITHUB_OUTPUT
 
       - name: Tag already exists
         if: steps.check-tag.outputs.exists == 'true'
         run: |
           echo "Tag ${{ steps.package-version.outputs.tag }} already exists. Skipping tag creation."
           echo "The release workflow may have already been triggered for this version."
+
+  trigger-release:
+    needs: create-tag
+    if: needs.create-tag.outputs.tag-created == 'true'
+    uses: ./.github/workflows/release.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      tag: ${{ needs.create-tag.outputs.tag }}
