@@ -9,7 +9,7 @@ jobs:
     outputs:
       tag: ${{ steps.package-version.outputs.tag }}
       tag-created: ${{ steps.create-tag.outputs.created }}
-      trigger-release: ${{ steps.check-release.outputs.trigger_release }}
+      trigger-release: ${{ steps.set-trigger.outputs.trigger_release }}
     permissions:
       contents: write
 
@@ -80,9 +80,21 @@ jobs:
             echo "trigger_release=true" >> $GITHUB_OUTPUT
           fi
 
+      - name: Set trigger-release output
+        id: set-trigger
+        run: |
+          # Set trigger_release to true if tag was just created, or if release is missing
+          if [ "${{ steps.create-tag.outputs.created }}" = "true" ]; then
+            echo "trigger_release=true" >> $GITHUB_OUTPUT
+          elif [ "${{ steps.check-release.outputs.trigger_release }}" = "true" ]; then
+            echo "trigger_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "trigger_release=false" >> $GITHUB_OUTPUT
+          fi
+
   trigger-release:
     needs: create-tag
-    if: needs.create-tag.outputs.tag-created == 'true' || needs.create-tag.outputs.trigger-release == 'true'
+    if: needs.create-tag.outputs.trigger-release == 'true'
     uses: ./.github/workflows/release.yml
     permissions:
       contents: write
