@@ -23,7 +23,15 @@ jobs:
       - name: Extract version from package.json
         id: package-version
         run: |
+          if [ ! -f package.json ]; then
+            echo "Error: package.json not found"
+            exit 1
+          fi
           VERSION=$(node -p "require('./package.json').version")
+          if [ -z "$VERSION" ] || [ "$VERSION" = "undefined" ]; then
+            echo "Error: version field not found in package.json"
+            exit 1
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=v$VERSION" >> $GITHUB_OUTPUT
           echo "Extracted version: $VERSION"
@@ -53,4 +61,4 @@ jobs:
         if: steps.check-tag.outputs.exists == 'true'
         run: |
           echo "Tag ${{ steps.package-version.outputs.tag }} already exists. Skipping tag creation."
-          exit 1
+          echo "The release workflow may have already been triggered for this version."
