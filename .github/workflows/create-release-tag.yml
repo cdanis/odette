@@ -9,6 +9,7 @@ jobs:
     outputs:
       tag: ${{ steps.package-version.outputs.tag }}
       tag-created: ${{ steps.create-tag.outputs.created }}
+      trigger-release: ${{ steps.set-trigger.outputs.trigger_release }}
     permissions:
       contents: write
 
@@ -62,15 +63,36 @@ jobs:
           echo "Created and pushed tag ${{ steps.package-version.outputs.tag }}"
           echo "created=true" >> $GITHUB_OUTPUT
 
-      - name: Tag already exists
+      - name: Tag already exists - check if release exists
+        id: check-release
         if: steps.check-tag.outputs.exists == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "Tag ${{ steps.package-version.outputs.tag }} already exists. Skipping tag creation."
-          echo "The release workflow may have already been triggered for this version."
+          echo "Tag ${{ steps.package-version.outputs.tag }} already exists."
+          
+          # Check if a release exists for this tag
+          if gh release view "${{ steps.package-version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release for ${{ steps.package-version.outputs.tag }} already exists. Nothing to do."
+            echo "trigger_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "Release for ${{ steps.package-version.outputs.tag }} does not exist. Will trigger release workflow."
+            echo "trigger_release=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set trigger-release output
+        id: set-trigger
+        run: |
+          # Set trigger_release to true if tag was just created, or if release is missing
+          if [ "${{ steps.create-tag.outputs.created }}" = "true" ] || [ "${{ steps.check-release.outputs.trigger_release }}" = "true" ]; then
+            echo "trigger_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "trigger_release=false" >> $GITHUB_OUTPUT
+          fi
 
   trigger-release:
     needs: create-tag
-    if: needs.create-tag.outputs.tag-created == 'true'
+    if: needs.create-tag.outputs.trigger-release == 'true'
     uses: ./.github/workflows/release.yml
     permissions:
       contents: write
