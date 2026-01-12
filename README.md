@@ -15,12 +15,12 @@ Each guest gets a unique link — no login required to RSVP.
 
 ## Features
 
-- **Token-based RSVPs** — No guest logins, just click the link
+- **Token-based RSVPs** — No guest logins, just click the unique link
 - **Party size tracking** — Guests specify party size
 - **Email handling** — Primary + CC addresses per attendee
 - **Batch imports** — Parse from email headers, upload CSV/TSV, copy from other events
-- **Admin dashboard** — Real-time statistics and searchable attendee management
-- **ICS calendar downloads** — Unique calendar file per guest with event details
+- **Admin dashboard** — Create/modify events and attendees
+- **ICS calendar downloads** — One-click "Add to calendar" for guests
 - **Timezone support** — Event times display correctly for all recipients
 - **Event customization** — Banner images, location links, rich descriptions
 - **Mobile-friendly and desktop-friendly UI** — Responsive design built with [PicoCSS](https://picocss.com/)
