@@ -84,9 +84,7 @@ jobs:
         id: set-trigger
         run: |
           # Set trigger_release to true if tag was just created, or if release is missing
-          if [ "${{ steps.create-tag.outputs.created }}" = "true" ]; then
-            echo "trigger_release=true" >> $GITHUB_OUTPUT
-          elif [ "${{ steps.check-release.outputs.trigger_release }}" = "true" ]; then
+          if [ "${{ steps.create-tag.outputs.created }}" = "true" ] || [ "${{ steps.check-release.outputs.trigger_release }}" = "true" ]; then
             echo "trigger_release=true" >> $GITHUB_OUTPUT
           else
             echo "trigger_release=false" >> $GITHUB_OUTPUT
