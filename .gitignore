@@ -1,3 +1,30 @@
 node_modules/
 dist/
 .aider*
+
+# Database files
+*.sqlite
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+
+# Environment files
+.env
+.env.local
+.env*.local
+
+# User data and uploads
+data/
+rsvp.sqlite
+prod.sqlite
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
