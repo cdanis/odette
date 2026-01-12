@@ -45,7 +45,7 @@ Releases are automated via GitHub Actions:
    - Build the application
    - Create a GitHub release with build artifacts
    - Build and push Docker images to `ghcr.io/cdanis/odette`
-   - Tag Docker images with the version and `latest`
+   - Tag Docker images with the version number (and `latest` for stable releases only)
 
 Release artifacts include a compressed tarball with the built application files.
 
