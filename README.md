@@ -4,14 +4,11 @@ Event invitation and RSVP management system built for self-hosting.
 
 ## What it does
 
-- Create events with details (date, location, description, banner images)
+- Create events with details (date, location, description, images)
 - Manage guest lists
 - Send email invitations with unique RSVP links
-- "Add to calendar" button yielding ICS calendar files
 - Track responses (yes/no/pending)
 - Optional push notifications (via ntfy.sh)
-
-Each guest gets a unique link — no login required to RSVP.
 
 ## Features
 
@@ -22,7 +19,7 @@ Each guest gets a unique link — no login required to RSVP.
 - **Admin dashboard** — Create/modify events and attendees
 - **ICS calendar downloads** — One-click "Add to calendar" for guests
 - **Timezone support** — Event times display correctly for all recipients
-- **Event customization** — Banner images, location links, rich descriptions
+- **Mild customization** — Banner images, location links, rich descriptions
 - **Mobile-friendly and desktop-friendly UI** — Responsive design built with [PicoCSS](https://picocss.com/)
 - **Zero-config database** — SQLite with automatic runtime migrations
 
