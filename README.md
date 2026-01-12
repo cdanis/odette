@@ -73,10 +73,10 @@ Environment variables:
 
 - `PORT` (default: `3000`)
 - `APP_BASE_URL` (default: `http://localhost:3000`) — Used in RSVP links
-- `DB_PATH` (default: `./rsvp.sqlite`)
-- `EVENT_BANNER_STORAGE_PATH` (default: `./data/uploads/event-banners`)
+- `DB_PATH` (default: `./rsvp.sqlite` except in Docker where it's `/data/rsvp.sqlite`)
+- `EVENT_BANNER_STORAGE_PATH` (default: `./data/uploads/event-banners` except in Docker where it's `/data/uploads/event-banners`)
 
-### Optional: Push Notifications
+### Optional: Push notifications for responses
 
 - `NTFY_TOPIC` — Topic name for push notifications
 - `NTFY_BASE_URL` (default: `https://ntfy.sh`)
@@ -98,7 +98,7 @@ location / {
 }
 ```
 
-Or use SSO solutions like Authelia, oauth2-proxy, or Tailscale Funnel with identity.
+Or use SSO solutions like Authelia, oauth2-proxy, etc.
 
 ## Features
 
@@ -129,9 +129,8 @@ Tests use in-memory SQLite.
 ## Roadmap / Known Limitations
 
 - No email queueing or rate limiting
-- No multi-tenancy (single admin per instance)
-- No event-specific admin logins
-- No structured logging
+- No multi-tenancy (single admin of all events per instance)
+- No social login or SSO; admin auth is via reverse proxy only
 
 See [TODO.md](TODO.md) for more.
 
@@ -142,3 +141,7 @@ AGPL-3.0 — See [LICENSE.txt](LICENSE.txt)
 ## Contributing
 
 This is primarily a personal project, but bug reports and PRs are welcome.
+
+## AI Usage Disclosure
+
+This project likely wouldn't exist without AI assistance. Lots of code and documentation were generated or improved using AI tools.
